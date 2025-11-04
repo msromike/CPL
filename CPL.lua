@@ -51,15 +51,13 @@ end
 -- Function to modify chat messages
 local function AddLevelToChat(self, event, msg, author, ...)
     local level = GetPlayerLevel(author)
+    local name = strsplit("-", author)
 
-    if level then
-        -- Find the player name in the message and add level
-        local name = strsplit("-", author)
-        local modifiedMsg = msg:gsub(name, name .. " [" .. level .. "]")
-        return false, modifiedMsg, author, ...
-    end
+    -- Always show level - either known level or [??] for unknown
+    local levelDisplay = level and ("[" .. level .. "]") or "[??]"
+    local modifiedMsg = msg:gsub(name, name .. " " .. levelDisplay)
 
-    return false, msg, author, ...
+    return false, modifiedMsg, author, ...
 end
 
 -- Event handler
