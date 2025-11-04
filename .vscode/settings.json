@@ -1,0 +1,34 @@
+{
+    "files.associations": {
+        "*.toc": "plaintext",
+        ".luacheckrc": "properties"
+    },
+    "markdownlint.config": {
+        "MD040": false,
+        "MD013": false,
+        "MD033": false
+    },
+    "Lua.diagnostics.globals": [
+        "CreateFrame",
+        "ChatFrame_AddMessageEventFilter",
+        "UnitExists",
+        "UnitName",
+        "UnitLevel",
+        "UnitIsPlayer",
+        "UnitClass",
+        "UnitRace",
+        "strsplit",
+        "strjoin",
+        "ADDON_LOADED",
+        "PLAYER_TARGET_CHANGED",
+        "PLAYER_LOGIN",
+        "PLAYER_LOGOUT",
+        "CPLDB",
+        "C_AddOns",
+        "LibStub",
+        "GetAddOnMetadata",
+        "IsAddOnLoaded",
+        "print",
+        "_G"
+    ]
+}

@@ -1,105 +1,102 @@
--- CPL - Chat Player Levels
--- Adds player levels to chat messages
-local addonName, CPL = ...
+-- CPL - Chat Player Levels (Minimal Test)
+-- Shows [??:playername] for everyone
 
--- Database for storing player levels
-CPL.db = {}
+-- State tracking
+local cplEnabled = true
 
--- Events that carry player info
-local CHAT_EVENTS = {
-    "CHAT_MSG_SAY",
-    "CHAT_MSG_YELL",
-    "CHAT_MSG_WHISPER",
-    "CHAT_MSG_GUILD",
-    "CHAT_MSG_PARTY",
-    "CHAT_MSG_RAID",
-    "CHAT_MSG_RAID_LEADER",
-    "CHAT_MSG_PARTY_LEADER",
-    "CHAT_MSG_CHANNEL",
-    "CHAT_MSG_EMOTE",
-    "CHAT_MSG_TEXT_EMOTE"
-}
-
--- Frame for event handling
-local frame = CreateFrame("Frame")
-
--- Function to get/cache player level
-local function GetPlayerLevel(playerName)
-    if not playerName then return nil end
-
-    -- Remove server name if present
-    local name = strsplit("-", playerName)
-
-    -- Check cache first
-    if CPL.db[name] then
-        return CPL.db[name]
-    end
-
-    -- Try to get level from inspection/targeting
-    -- This is limited in Classic but we'll cache what we can get
-    if UnitExists("target") and UnitName("target") == name then
-        local level = UnitLevel("target")
-        if level and level > 0 then
-            CPL.db[name] = level
-            return level
-        end
-    end
-
-    return nil
-end
-
--- Function to modify chat messages
+-- Simple function to modify chat messages
 local function AddLevelToChat(self, event, msg, author, ...)
-    local level = GetPlayerLevel(author)
+    -- Check if CPL is enabled
+    if not cplEnabled then
+        return false  -- Pass through unchanged
+    end
+
+    -- Split server name from player name
     local name = strsplit("-", author)
 
-    -- Format: [level:name] or [??:name]
-    local levelDisplay = level and ("[" .. level .. ":" .. name .. "]") or "[??:" .. name .. "]"
-    local modifiedMsg = msg:gsub(name, levelDisplay)
+    -- Prepend level info to the message instead of modifying author
+    -- This keeps the author clickable while still showing level info
+    local modifiedMsg = "[??:" .. name .. "] " .. msg
 
+    -- Return with original author intact, modified message
     return false, modifiedMsg, author, ...
 end
 
--- Event handler
-local function OnEvent(self, event, ...)
-    if event == "ADDON_LOADED" then
-        local addonLoaded = ...
-        if addonLoaded == addonName then
-            -- Initialize saved variables
-            if not CPLDB then
-                CPLDB = {}
-            end
-            CPL.db = CPLDB
-            print("CPL - Chat Player Levels loaded")
-        end
-    elseif event == "PLAYER_LOGOUT" then
-        -- Save database
-        CPLDB = CPL.db
-    end
-end
+-- Chat events where we want to show player levels
+-- Focus on core social communication channels only
+local events = {
+    -- ACTIVE EVENTS
+    -- Local Communication
+    "CHAT_MSG_SAY",                 -- Local area chat (white text)
+    "CHAT_MSG_WHISPER",             -- Incoming private messages
+    -- Group Coordination
+    "CHAT_MSG_PARTY",               -- Party chat (blue text)
+    "CHAT_MSG_PARTY_LEADER",        -- Party leader messages (blue with icon)
+    "CHAT_MSG_RAID",                -- Raid chat (orange text)
+    "CHAT_MSG_RAID_LEADER",         -- Raid leader messages (orange with icon)
+    "CHAT_MSG_INSTANCE_CHAT",       -- Dungeon/instance group chat
+    "CHAT_MSG_INSTANCE_CHAT_LEADER", -- Instance group leader messages
+    -- Guild Communications
+    "CHAT_MSG_GUILD",               -- Guild chat (green text)
+    "CHAT_MSG_OFFICER",             -- Officer chat (light green text)
+    -- Public Channels
+    "CHAT_MSG_CHANNEL",             -- Custom channels (/1 General, /2 Trade, etc.)
 
--- Register events
-frame:RegisterEvent("ADDON_LOADED")
-frame:RegisterEvent("PLAYER_LOGOUT")
-frame:SetScript("OnEvent", OnEvent)
+    -- DISABLED EVENTS
+    -- "CHAT_MSG_YELL",             -- Yell messages (often roleplay/immersion)
+    -- "CHAT_MSG_WHISPER_INFORM",   -- YOUR outgoing whispers (you=author, target in text)
+    -- "CHAT_MSG_RAID_WARNING",     -- Raid warnings (large center text, keep clean)
+    -- "CHAT_MSG_BN_WHISPER",       -- Battle.net friends (cross-game/server)
+    -- "CHAT_MSG_BN_WHISPER_INFORM", -- Battle.net confirmations
+    -- "CHAT_MSG_COMMUNITIES_CHANNEL", -- Community/club chat
+    -- "CHAT_MSG_BATTLEGROUND",     -- Battleground team chat
+    -- "CHAT_MSG_BATTLEGROUND_LEADER", -- BG leader messages
+    -- "CHAT_MSG_BG_SYSTEM_NEUTRAL", -- BG system announcements
+    -- "CHAT_MSG_BG_SYSTEM_ALLIANCE", -- BG system (Alliance)
+    -- "CHAT_MSG_BG_SYSTEM_HORDE",  -- BG system (Horde)
+    -- "CHAT_MSG_ACHIEVEMENT",      -- Achievement announcements
+    -- "CHAT_MSG_GUILD_ACHIEVEMENT", -- Guild achievement announcements
+    -- "CHAT_MSG_EMOTE",            -- Player emotes
+    -- "CHAT_MSG_TEXT_EMOTE",       -- Text emotes
+    -- "CHAT_MSG_SYSTEM",           -- System messages
+    -- "CHAT_MSG_MONSTER_SAY",      -- NPC dialogue
+    -- "CHAT_MSG_MONSTER_YELL"      -- NPC yells
+}
 
--- Hook chat message filters
-for _, event in pairs(CHAT_EVENTS) do
+-- Register the filter for all events
+for _, event in pairs(events) do
     ChatFrame_AddMessageEventFilter(event, AddLevelToChat)
 end
 
--- Hook target changes to cache levels
-local targetFrame = CreateFrame("Frame")
-targetFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
-targetFrame:SetScript("OnEvent", function(self, event)
-    if UnitExists("target") and UnitIsPlayer("target") then
-        local name = UnitName("target")
-        local level = UnitLevel("target")
-        if name and level and level > 0 then
-            CPL.db[name] = level
-        end
-    end
-end)
+-- Slash command handler
+local function HandleSlashCommand(msg)
+    local command = string.lower(msg or "")
 
--- Expose CPL globally for debugging
-_G.CPL = CPL
+    if command == "status" then
+        local status = cplEnabled and "|cff00ff00enabled|r" or "|cffff0000disabled|r"
+        print("CPL status: " .. status)
+
+    elseif command == "enable" then
+        cplEnabled = true
+        print("CPL |cff00ff00enabled|r - Player levels will be shown in chat")
+
+    elseif command == "disable" then
+        cplEnabled = false
+        print("CPL |cffff0000disabled|r - Player levels hidden from chat")
+
+    else
+        -- Show help
+        print("CPL - Chat Player Levels Commands:")
+        print("  /cpl status  - Show current status")
+        print("  /cpl enable  - Enable level display")
+        print("  /cpl disable - Disable level display")
+    end
+end
+
+-- Register slash commands
+SLASH_CPL1 = "/cpl"
+SlashCmdList["CPL"] = HandleSlashCommand
+
+print("CPL - Chat Player Levels loaded")
+print("CPL: Registered filters for " .. #events .. " chat events")
+print("CPL: Use '/cpl status' to check if enabled")
