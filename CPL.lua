@@ -11,12 +11,8 @@ local function AddLevelToChat(self, event, msg, author, ...)
         return false  -- Pass through unchanged
     end
 
-    -- Split server name from player name
-    local name = strsplit("-", author)
-
-    -- Prepend level info to the message instead of modifying author
-    -- This keeps the author clickable while still showing level info
-    local modifiedMsg = "[??:" .. name .. "] " .. msg
+    -- Modify the message to include level info, keep author unchanged for right-click
+    local modifiedMsg = "[??] " .. msg
 
     -- Return with original author intact, modified message
     return false, modifiedMsg, author, ...
@@ -26,8 +22,7 @@ end
 -- Focus on core social communication channels only
 local events = {
     -- ACTIVE EVENTS
-    -- Local Communication
-    "CHAT_MSG_SAY",                 -- Local area chat (white text)
+    -- Local Communication (SAY removed - you can see those players directly)
     "CHAT_MSG_WHISPER",             -- Incoming private messages
     -- Group Coordination
     "CHAT_MSG_PARTY",               -- Party chat (blue text)
