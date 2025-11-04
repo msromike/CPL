@@ -53,9 +53,9 @@ local function AddLevelToChat(self, event, msg, author, ...)
     local level = GetPlayerLevel(author)
     local name = strsplit("-", author)
 
-    -- Always show level - either known level or [??] for unknown
-    local levelDisplay = level and ("[" .. level .. "]") or "[??]"
-    local modifiedMsg = msg:gsub(name, name .. " " .. levelDisplay)
+    -- Format: [level:name] or [??:name]
+    local levelDisplay = level and ("[" .. level .. ":" .. name .. "]") or "[??:" .. name .. "]"
+    local modifiedMsg = msg:gsub(name, levelDisplay)
 
     return false, modifiedMsg, author, ...
 end
