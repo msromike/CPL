@@ -1,8 +1,0 @@
-## Interface: 11506
-## Title: Chat Levels
-## Notes: Adds player levels to chat messages in Vanilla WoW with persistent data caching
-## Author: HazorAU/Nekminute
-## Version: 2.0
-## SavedVariables: ChatLevelsDB
-
-ChatLevelsAndRace.lua
