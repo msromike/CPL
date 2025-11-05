@@ -1,0 +1,82 @@
+we prepend [??] to the MSG payload if level unknown, otherise prepend actual current level in our lookup table
+
+these are the events were chat msg will have [nn] or [??] prepended if level unknown
+    -- ACTIVE EVENTS
+    "CHAT_MSG_WHISPER",             -- Incoming private messages
+    -- Group Coordination
+    "CHAT_MSG_PARTY",               -- Party chat (blue text)
+    "CHAT_MSG_PARTY_LEADER",        -- Party leader messages (blue with icon)
+    "CHAT_MSG_RAID",                -- Raid chat (orange text)
+    "CHAT_MSG_RAID_LEADER",         -- Raid leader messages (orange with icon)
+    "CHAT_MSG_INSTANCE_CHAT",       -- Dungeon/instance group chat
+    "CHAT_MSG_INSTANCE_CHAT_LEADER", -- Instance group leader messages
+    -- Guild Communications
+    "CHAT_MSG_GUILD",               -- Guild chat (green text)
+    "CHAT_MSG_OFFICER",             -- Officer chat (light green text)
+    -- Public Channels
+    "CHAT_MSG_CHANNEL",             -- Custom channels (/1 General, /2 Trade, etc.)
+
+we collect and cache into two tables: who table and guild table
+
+who table
+    key = player name
+    fields = level, lastUpdated
+
+guild table
+    key = guild index
+    fields =    name, level, guildIndex, lastUpdated, previousLevel,
+                previousTimestamp, lastSeen, firstScanned, scanCount
+
+FIELD DEFINITIONS TABLE (Cut & Pastable):
+┌─────────────────────┬──────────────────────────────────────────────────────────────┐
+│ Field               │ Purpose                                                      │
+├─────────────────────┼──────────────────────────────────────────────────────────────┤
+│ name                │ Player name (cleaned, no server suffix)                     │
+│ level               │ Current player level                                         │
+│ guildIndex          │ Guild roster position (correlation check vs table key)      │
+│ lastUpdated         │ When we last queried this player (cache freshness)          │
+│ previousLevel       │ Their level before last change (0 if never changed)         │
+│ previousTimestamp   │ When we recorded their previous level (level change time)   │
+│ lastSeen            │ When they were last online (0 if offline during scan)       │
+│ firstScanned        │ When we first discovered this player                        │
+│ scanCount           │ How many times we've scanned them                           │
+└─────────────────────┴──────────────────────────────────────────────────────────────┘
+
+*collection classes - and which tables they update*
+    target - updates who table
+    who    - updates who table
+    guild   - updates guild table
+
+method per class
+    target - OnTargetChanged
+
+TARGET CHANGED - WITH EVENT REFERENCE
+
+┌─────────────────────┬─────────────────────────────────┬─────────────────────────┬──────────────┐
+│ Event Trigger       │ Target State                    │ Action Required         │ API Calls    │
+├─────────────────────┼─────────────────────────────────┼─────────────────────────┼──────────────┤
+│ PLAYER_TARGET_      │ Target Not Player               │ Exit (do nothing)       │ 0            │
+│ CHANGED             │                                 │                         │              │
+├─────────────────────┼─────────────────────────────────┼─────────────────────────┼──────────────┤
+│ PLAYER_TARGET_      │ Target Is Player                │ Update cache            │ 1 (instant)  │
+│ CHANGED             │                                 │ level/timestamp         │              │
+│                     │                                 │ Display updated level   │              │
+└─────────────────────┴─────────────────────────────────┴─────────────────────────┴──────────────┘
+
+    who    - on any event of interest (ie someone name appears in a msg event
+                that we are prepending)
+            use lib who on every name appearing in chat if more than 1 hr old since lastUpdated
+            do not query who if level is level 60 (max level)
+
+    guild
+       - OnGuildRosterUpdate (not PLAYER_GUILD_UPDATE to avoid double scans)
+    any chat in general/party/ eventsOnSlashCommand
+    OnGuildRosterUpdate
+
+   philosophy
+    * no defensive coding - we let bugsack/debugger do the work, we dont care about edge cases until and if they surface
+    * minimal if any debug output to console unless enabled for debugging, we dont need progress reports on scans, MAYBE if there is a fatal error
+    * performance optimizations are crucial
+    * we make sure it is non-blocking at all times - no delays, no waits, no yield, no coroutines, no timers
+    *minimal slash commands (enable, disable, status, nuke tables - for testing)
+    * status can be unified we dont need a lot of different types of status, it would report metrics of the tables and scanning state, is addon active etc
