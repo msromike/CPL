@@ -193,12 +193,9 @@ function CPL:testWho(targetName)
 
     self.whoFrame:RegisterEvent("WHO_LIST_UPDATE")
 
-    -- Send the WHO query (try modern API first, fallback to legacy)
-    if C_FriendList and C_FriendList.SendWho then
-        C_FriendList.SendWho(targetName)
-    else
-        SendWho(targetName)
-    end
+    -- Send the WHO query using modern API
+    self:debug("Sending WHO query via C_FriendList.SendWho()")
+    C_FriendList.SendWho(targetName)
 end
 
 -- Process WHO results when WHO_LIST_UPDATE fires
@@ -206,30 +203,18 @@ function CPL:processWhoResults()
     local targetName = self.whoTarget
     if not targetName then return end
 
-    -- Try modern API first
-    if C_FriendList and C_FriendList.GetNumWhoResults then
-        local numResults = C_FriendList.GetNumWhoResults()
+    -- Process WHO results using modern API
+    self:debug("Processing results via C_FriendList API")
+    local numResults = C_FriendList.GetNumWhoResults()
+    self:debug("Found " .. numResults .. " results")
 
-        for i = 1, numResults do
-            local info = C_FriendList.GetWhoInfo(i)
-            if info and info.fullName and info.level then
-                if info.fullName:lower() == targetName:lower() then
-                    -- Store the data we found
-                    self:addName(info.fullName, nil, info.filename, info.level, nil, "WHO")
-                end
-            end
-        end
-    else
-        -- Fallback to legacy API
-        local numResults = GetNumWhoResults and GetNumWhoResults() or 0
-
-        for i = 1, numResults do
-            local name, guild, level, race, class, zone = GetWhoInfo(i)
-            if name and level then
-                if name:lower() == targetName:lower() then
-                    -- Store the data we found
-                    self:addName(name, nil, class, level, nil, "WHO")
-                end
+    for i = 1, numResults do
+        local info = C_FriendList.GetWhoInfo(i)
+        if info and info.fullName and info.level then
+            if info.fullName:lower() == targetName:lower() then
+                self:debug("SUCCESS: Found " .. info.fullName)
+                -- Store the data we found
+                self:addName(info.fullName, nil, info.filename, info.level, nil, "WHO")
             end
         end
     end
