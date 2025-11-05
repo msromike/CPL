@@ -1,6 +1,7 @@
 # Ignore third-party addons
 ChatLevelsAndRace/
 Prat-3.0/
+Ace3/
 
 # Ignore archive files
 *.rar
