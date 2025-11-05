@@ -110,10 +110,18 @@ SlashCmdList["CPL"] = function(msg)
         CPL:toggleDebug()
     elseif cmd == "cache" then
         CPL:debugCache()
+    elseif cmd == "who" then
+        local targetName = args[2]
+        if targetName then
+            CPL:testWho(targetName)
+        else
+            print("Usage: /cpl who <playername>")
+        end
     elseif cmd == "help" then
         print("CPL Commands:")
         print("  /cpl debug - Toggle debug mode on/off")
         print("  /cpl cache - Show cache contents")
+        print("  /cpl who <name> - Test WHO query for player")
         print("  /cpl help  - Show this help")
     else
         print("CPL loaded. Type '/cpl help' for commands.")
@@ -161,17 +169,73 @@ function CPL:updateRaid()
     end
 end
 
--- WHO detection function - based on Prat's updateWho()
-function CPL:updateWho()
-    local numWhos, totalWhos = GetNumWhoResults()
+-- WHO test function - sends query and processes results
+function CPL:testWho(targetName)
+    if not targetName or #targetName < 3 then
+        print("CPL: Name must be at least 3 characters for WHO search")
+        return
+    end
 
-    for i = 1, numWhos do
-        local name, guild, level, race, class = GetWhoInfo(i)
+    -- Store target name for result processing
+    self.whoTarget = targetName
 
-        if name and level and level > 0 then
-            self:addName(name, nil, class, level, nil, "WHO")
+    -- Register for WHO results
+    if not self.whoFrame then
+        self.whoFrame = CreateFrame("Frame")
+        self.whoFrame:SetScript("OnEvent", function(frame, event)
+            if event == "WHO_LIST_UPDATE" then
+                CPL:processWhoResults()
+                -- Clean up - unregister until next query
+                frame:UnregisterEvent("WHO_LIST_UPDATE")
+            end
+        end)
+    end
+
+    self.whoFrame:RegisterEvent("WHO_LIST_UPDATE")
+
+    -- Send the WHO query (try modern API first, fallback to legacy)
+    if C_FriendList and C_FriendList.SendWho then
+        C_FriendList.SendWho(targetName)
+    else
+        SendWho(targetName)
+    end
+end
+
+-- Process WHO results when WHO_LIST_UPDATE fires
+function CPL:processWhoResults()
+    local targetName = self.whoTarget
+    if not targetName then return end
+
+    -- Try modern API first
+    if C_FriendList and C_FriendList.GetNumWhoResults then
+        local numResults = C_FriendList.GetNumWhoResults()
+
+        for i = 1, numResults do
+            local info = C_FriendList.GetWhoInfo(i)
+            if info and info.fullName and info.level then
+                if info.fullName:lower() == targetName:lower() then
+                    -- Store the data we found
+                    self:addName(info.fullName, nil, info.filename, info.level, nil, "WHO")
+                end
+            end
+        end
+    else
+        -- Fallback to legacy API
+        local numResults = GetNumWhoResults and GetNumWhoResults() or 0
+
+        for i = 1, numResults do
+            local name, guild, level, race, class, zone = GetWhoInfo(i)
+            if name and level then
+                if name:lower() == targetName:lower() then
+                    -- Store the data we found
+                    self:addName(name, nil, class, level, nil, "WHO")
+                end
+            end
         end
     end
+
+    -- Clean up
+    self.whoTarget = nil
 end
 
 -- Event registration and handlers
@@ -179,7 +243,6 @@ local frame = CreateFrame("Frame")
 frame:RegisterEvent("PLAYER_TARGET_CHANGED")
 frame:RegisterEvent("UPDATE_MOUSEOVER_UNIT")
 frame:RegisterEvent("GROUP_ROSTER_UPDATE")
-frame:RegisterEvent("WHO_LIST_UPDATE")
 frame:SetScript("OnEvent", function(self, event)
     if event == "PLAYER_TARGET_CHANGED" then
         CPL:updateTarget()
@@ -191,9 +254,6 @@ frame:SetScript("OnEvent", function(self, event)
         else
             CPL:updateParty()
         end
-    elseif event == "WHO_LIST_UPDATE" then
-        print("WHO_LIST_UPDATE event fired!")  -- Debug: show event fired
-        CPL:updateWho()
     end
 end)
 
