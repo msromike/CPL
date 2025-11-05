@@ -243,8 +243,11 @@ CPL.channelConfig = {
 local function OnChannelChat(self, event, msg, author, language, channelString, target, flags, unknown, channelNumber, channelName, ...)
     -- Check if this channel is enabled
     if CPL.channelConfig[channelNumber] and CPL.channelConfig[channelNumber].enabled then
-        -- For now: just log names to console - using dynamic channelName from game
-        print("CPL CHAT - Channel " .. channelNumber .. " (" .. (channelName or "Unknown") .. "): " .. author)
+        -- Strip realm suffix (retail client artifact - not used in Classic Era)
+        local playerName = strsplit("-", author, 2)
+
+        -- Debug output
+        print("CPL CHAT - Channel " .. channelNumber .. " (" .. (channelName or "Unknown") .. "): " .. playerName)
     end
     return false -- Pass through unchanged
 end
