@@ -194,7 +194,6 @@ function CPL:testWho(targetName)
     self.whoFrame:RegisterEvent("WHO_LIST_UPDATE")
 
     -- Send the WHO query using modern API
-    self:debug("Sending WHO query via C_FriendList.SendWho()")
     C_FriendList.SendWho(targetName)
 end
 
@@ -204,15 +203,12 @@ function CPL:processWhoResults()
     if not targetName then return end
 
     -- Process WHO results using modern API
-    self:debug("Processing results via C_FriendList API")
     local numResults = C_FriendList.GetNumWhoResults()
-    self:debug("Found " .. numResults .. " results")
 
     for i = 1, numResults do
         local info = C_FriendList.GetWhoInfo(i)
         if info and info.fullName and info.level then
             if info.fullName:lower() == targetName:lower() then
-                self:debug("SUCCESS: Found " .. info.fullName)
                 -- Store the data we found
                 self:addName(info.fullName, nil, info.filename, info.level, nil, "WHO")
             end
