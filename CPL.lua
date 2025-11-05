@@ -159,11 +159,27 @@ function CPL:updateRaid()
         Name, Server = UnitName("raid" .. i)
         self:addName(Name, Server, Class, Level, SubGroup, "RAID")
     end
-end-- Event registration and handlers
+end
+
+-- WHO detection function - based on Prat's updateWho()
+function CPL:updateWho()
+    local numWhos, totalWhos = GetNumWhoResults()
+
+    for i = 1, numWhos do
+        local name, guild, level, race, class = GetWhoInfo(i)
+
+        if name and level and level > 0 then
+            self:addName(name, nil, class, level, nil, "WHO")
+        end
+    end
+end
+
+-- Event registration and handlers
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("PLAYER_TARGET_CHANGED")
 frame:RegisterEvent("UPDATE_MOUSEOVER_UNIT")
 frame:RegisterEvent("GROUP_ROSTER_UPDATE")
+frame:RegisterEvent("WHO_LIST_UPDATE")
 frame:SetScript("OnEvent", function(self, event)
     if event == "PLAYER_TARGET_CHANGED" then
         CPL:updateTarget()
@@ -175,6 +191,9 @@ frame:SetScript("OnEvent", function(self, event)
         else
             CPL:updateParty()
         end
+    elseif event == "WHO_LIST_UPDATE" then
+        print("WHO_LIST_UPDATE event fired!")  -- Debug: show event fired
+        CPL:updateWho()
     end
 end)
 
