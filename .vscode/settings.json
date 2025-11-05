@@ -25,10 +25,24 @@
         "PLAYER_LOGOUT",
         "CPLDB",
         "C_AddOns",
+        "C_FriendList",
         "LibStub",
         "GetAddOnMetadata",
         "IsAddOnLoaded",
+        "GetNumGroupMembers",
+        "GetNumSubgroupMembers",
+        "GetRaidRosterInfo",
+        "IsInRaid",
+        "GetNumGuildMembers",
+        "GetGuildRosterInfo",
+        "UnitIsFriend",
+        "SlashCmdList",
         "print",
         "_G"
+    ],
+    "Lua.workspace.ignoreDir": [
+        "archive/",
+        "Prat-3.0/",
+        "Ace3/"
     ]
 }

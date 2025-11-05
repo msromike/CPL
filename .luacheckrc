@@ -27,10 +27,18 @@ read_globals = {
     "math",
     "bit",
     "C_AddOns",
+    "C_FriendList",
     "LibStub",
     "GetAddOnMetadata",
     "IsAddOnLoaded",
     "SlashCmdList",
+    "GetNumGroupMembers",
+    "GetNumSubgroupMembers",
+    "GetRaidRosterInfo",
+    "IsInRaid",
+    "GetNumGuildMembers",
+    "GetGuildRosterInfo",
+    "UnitIsFriend",
 }
 
 globals = {

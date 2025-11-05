@@ -96,35 +96,47 @@ function CPL:debugCache()
     print("======================")
 end
 
+-- Show help text (auto-generated from commands table)
+function CPL:showHelp()
+    print("CPL Commands:")
+    for cmd, info in pairs(CPL.commands) do
+        local usage = "/cpl " .. cmd
+        if info.args then
+            usage = usage .. " " .. info.args
+        end
+        print("  " .. usage .. " - " .. info.desc)
+    end
+end
+
 -- Initialize database on load
 InitDB()
 CPL:debug("Database initialized")
 
--- Slash command system
+-- Command table for easy extension (one line to add new commands)
+CPL.commands = {
+    debug = {func = "toggleDebug", desc = "Toggle debug mode on/off"},
+    cache = {func = "debugCache", desc = "Show cache contents"},
+    who = {func = "testWho", args = "<name>", desc = "Test WHO query for player"},
+    help = {func = "showHelp", desc = "Show this help"}
+}
+
+-- Clean slash command system
 SLASH_CPL1 = "/cpl"
 SlashCmdList["CPL"] = function(msg)
-    local args = {strsplit(" ", msg)}
-    local cmd = args[1] or ""
+    local cmd, arg = strsplit(" ", msg, 2)
+    cmd = cmd or "help"
 
-    if cmd == "debug" then
-        CPL:toggleDebug()
-    elseif cmd == "cache" then
-        CPL:debugCache()
-    elseif cmd == "who" then
-        local targetName = args[2]
-        if targetName then
-            CPL:testWho(targetName)
+    local command = CPL.commands[cmd]
+    if command then
+        -- Handle commands that require arguments
+        if command.args and not arg then
+            print("Usage: /cpl " .. cmd .. " " .. command.args)
         else
-            print("Usage: /cpl who <playername>")
+            -- Call the function
+            CPL[command.func](CPL, arg)
         end
-    elseif cmd == "help" then
-        print("CPL Commands:")
-        print("  /cpl debug - Toggle debug mode on/off")
-        print("  /cpl cache - Show cache contents")
-        print("  /cpl who <name> - Test WHO query for player")
-        print("  /cpl help  - Show this help")
     else
-        print("CPL loaded. Type '/cpl help' for commands.")
+        CPL:showHelp()
     end
 end
 
@@ -219,6 +231,24 @@ function CPL:processWhoResults()
     self.whoTarget = nil
 end
 
+-- Channel configuration (future GUI will modify this)
+-- Note: No hard-coded names - using dynamic channelName from game events
+CPL.channelConfig = {
+    [1] = {enabled = true},
+    [2] = {enabled = true},
+    [5] = {enabled = true}
+}
+
+-- Chat message processing function
+local function OnChannelChat(self, event, msg, author, language, channelString, target, flags, unknown, channelNumber, channelName, ...)
+    -- Check if this channel is enabled
+    if CPL.channelConfig[channelNumber] and CPL.channelConfig[channelNumber].enabled then
+        -- For now: just log names to console - using dynamic channelName from game
+        print("CPL CHAT - Channel " .. channelNumber .. " (" .. (channelName or "Unknown") .. "): " .. author)
+    end
+    return false -- Pass through unchanged
+end
+
 -- Event registration and handlers
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("PLAYER_TARGET_CHANGED")
@@ -238,4 +268,7 @@ frame:SetScript("OnEvent", function(self, event)
     end
 end)
 
-print("CPL: Core database system loaded")
+-- Register chat message filter for channel monitoring
+ChatFrame_AddMessageEventFilter("CHAT_MSG_CHANNEL", OnChannelChat)
+
+print("CPL: Core database system loaded with chat monitoring")
