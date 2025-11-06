@@ -28,6 +28,7 @@ read_globals = {
     "bit",
     "C_AddOns",
     "C_FriendList",
+    "C_Timer",
     "LibStub",
     "GetAddOnMetadata",
     "IsAddOnLoaded",

@@ -1,6 +1,7 @@
 # PRAT Level Detection System - Implementation Reference
 
 ## Overview
+
 7 core functions discovered in Prat that collect player level data from different sources. Each function caches levels using `addName()` for later display in chat.
 
 ---
@@ -8,6 +9,7 @@
 ## FUNCTION REFERENCE
 
 ### 1. **updateTarget()** - Target Level Detection ⭐ START HERE
+
 - **File**: `Prat-3.0/modules/PlayerNames.lua`
 - **Line**: ~1445
 - **Regex Search**: `function module:updateTarget\(\)`
@@ -16,6 +18,7 @@
 - **Test Method**: Target different level players, verify cache
 
 ### 2. **updateMouseOver()** - Mouseover Level Detection
+
 - **File**: `Prat-3.0/modules/PlayerNames.lua`
 - **Line**: ~1455
 - **Regex Search**: `function module:updateMouseOver\(event\)`
@@ -24,6 +27,7 @@
 - **Test Method**: Hover over players, verify cache
 
 ### 3. **updateParty()** - Party Member Detection
+
 - **File**: `Prat-3.0/modules/PlayerNames.lua`
 - **Line**: ~1430
 - **Regex Search**: `function module:updateParty\(\)`
@@ -32,6 +36,7 @@
 - **Test Method**: Join party, verify party member levels cached
 
 ### 4. **updateGuild()** - Guild Member Detection
+
 - **File**: `Prat-3.0/modules/PlayerNames.lua`
 - **Line**: ~1398
 - **Regex Search**: `function module:updateGuild\(\)`
@@ -40,6 +45,7 @@
 - **Test Method**: Check guild tab, verify all guild levels cached
 
 ### 5. **updateRaid()** - Raid Member Detection
+
 - **File**: `Prat-3.0/modules/PlayerNames.lua`
 - **Line**: ~1415
 - **Regex Search**: `function module:updateRaid\(\)`
@@ -48,6 +54,7 @@
 - **Test Method**: Join raid, verify raid member levels cached
 
 ### 6. **updateWho()** - WHO Query Results Processing ⭐ KEY FUNCTION
+
 - **File**: `Prat-3.0/modules/PlayerNames.lua`
 - **Line**: ~1470
 - **Regex Search**: `function module:updateWho\(\)`
@@ -56,6 +63,7 @@
 - **Test Method**: Run /who, verify unknown player levels cached
 
 ### 7. **updateBG()** - Battleground Detection
+
 - **File**: `Prat-3.0/modules/PlayerNames.lua`
 - **Line**: ~1480
 - **Regex Search**: `function module:updateBG\(\)`
@@ -68,6 +76,7 @@
 ## CORE HELPER FUNCTIONS
 
 ### **addName()** - Level Storage Function
+
 - **File**: `Prat-3.0/modules/PlayerNames.lua`
 - **Line**: ~1540
 - **Regex Search**: `function module:addName\(Name, Server, Class, Level, SubGroup, Source\)`
@@ -75,6 +84,7 @@
 - **Storage**: `self.Levels[Name:lower()] = Level`
 
 ### **getLevel()** - Level Retrieval Function
+
 - **File**: `Prat-3.0/modules/PlayerNames.lua`
 - **Line**: ~1600
 - **Regex Search**: `function module:getLevel\(player\)`
@@ -82,6 +92,7 @@
 - **Logic**: Checks memory cache, then persistent cache
 
 ### **FormatPlayer()** - Chat Display Function
+
 - **File**: `Prat-3.0/modules/PlayerNames.lua`
 - **Line**: ~1630
 - **Regex Search**: `function module:FormatPlayer\(message, Name, frame, class\)`
