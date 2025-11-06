@@ -18,6 +18,9 @@ function CPL:toggleDebug()
     print("CPL Debug mode:", self.debugMode and "ON" or "OFF")
 end
 
+-- WHO query queue (memory only)
+CPL.WhoQueue = {}
+
 -- Persistent storage - create on init if missing
 local function InitDB()
     if not CPLDB then
@@ -61,6 +64,18 @@ function CPL:debugCache()
     print("======================")
 end
 
+-- Debug function to inspect WHO queue
+function CPL:debugQueue()
+    print("=== CPL WHO QUEUE ===")
+    local count = 0
+    for name, _ in pairs(self.WhoQueue) do
+        print("  " .. name)
+        count = count + 1
+    end
+    print("Total: " .. count .. " players")
+    print("=====================")
+end
+
 -- Show help text (auto-generated from commands table)
 function CPL:showHelp()
     print("CPL Commands:")
@@ -81,6 +96,7 @@ CPL:debug("Database initialized")
 CPL.commands = {
     debug = {func = "toggleDebug", desc = "Toggle debug mode on/off"},
     cache = {func = "debugCache", desc = "Show cache contents"},
+    queue = {func = "debugQueue", desc = "Show WHO queue contents"},
     who = {func = "testWho", args = "<name>", desc = "Test WHO query for player"},
     help = {func = "showHelp", desc = "Show this help"}
 }
@@ -205,9 +221,16 @@ local function OnChannelChat(self, event, msg, author, language, channelString, 
     if CPL.channelConfig[channelNumber] and CPL.channelConfig[channelNumber].enabled then
         -- Strip realm suffix (retail client artifact - not used in Classic Era)
         local playerName = strsplit("-", author, 2)
+        local key = playerName:lower()
+
+        -- Check if player needs WHO query (not in cache and not already queued)
+        if not CPLDB.players[key] and not CPL.WhoQueue[key] then
+            CPL.WhoQueue[key] = true
+            CPL:debug("QUEUE: Added", playerName, "to WHO queue")
+        end
 
         -- Debug output
-        print("CPL CHAT - Channel " .. channelNumber .. " (" .. (channelName or "Unknown") .. "): " .. playerName)
+        CPL:debug("CHAT - Channel " .. channelNumber .. " (" .. (channelName or "Unknown") .. "): " .. playerName)
     end
     return false -- Pass through unchanged
 end
