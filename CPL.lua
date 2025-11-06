@@ -8,6 +8,10 @@
 --   /cpl queue  - Show WHO query queue
 --   /cpl help   - List all commands
 
+--------------------------------------------------
+-- Addon Namespace & Configuration
+--------------------------------------------------
+
 -- Addon namespace
 local CPL = {}
 
@@ -19,6 +23,10 @@ CPL.debugMode = true
 
 -- WHO query queue (cache in memory)
 CPL.WhoQueue = {}
+
+--------------------------------------------------
+-- Core Database Functions
+--------------------------------------------------
 
 -- Persistent storage - create on init if missing
 local function InitDB()
@@ -54,6 +62,10 @@ function CPL:getLevel(player)
     return data and data[1]
 end
 
+--------------------------------------------------
+-- Slash Commands & Command Routing
+--------------------------------------------------
+
 -- Command table for easy extension (one line to add new commands)
 CPL.commands = {
     debug = {func = "toggleDebug", desc = "Toggle debug mode on/off"},
@@ -81,6 +93,10 @@ SlashCmdList["CPL"] = function(msg)
         CPL:showHelp()
     end
 end
+
+--------------------------------------------------
+-- Player Detection Functions
+--------------------------------------------------
 
 -- Target detection function
 function CPL:updateTarget()
@@ -118,6 +134,10 @@ function CPL:updateRaid()
     end
 end
 
+--------------------------------------------------
+-- WHO Query System
+--------------------------------------------------
+
 -- Process WHO results when CHAT_MSG_SYSTEM fires
 function CPL:processWhoResults()
     local targetName = self.whoTarget
@@ -151,13 +171,18 @@ function CPL:processWhoResults()
     end)
 end
 
+--------------------------------------------------
+-- Chat Channel Monitoring
+--------------------------------------------------
+
 -- Channel configuration (future GUI will modify this)
 -- Note: No hard-coded names - using dynamic channelName from game events
-CPL.channelConfig = {
-    [1] = {enabled = true},
-    [2] = {enabled = true},
-    [5] = {enabled = true}
-}
+CPL.channelConfig = {}
+
+-- Initialize all channels 1-7 as enabled by default
+for i = 1, 7 do
+    CPL.channelConfig[i] = {enabled = true}
+end
 
 -- Chat message processing function
 local function OnChannelChat(self, event, msg, author, language, channelString, target, flags, unknown, channelNumber, channelName, ...)
@@ -204,6 +229,10 @@ local function OnChannelChat(self, event, msg, author, language, channelString, 
     return false -- Pass through unchanged
 end
 
+--------------------------------------------------
+-- Event Registration & Initialization
+--------------------------------------------------
+
 -- Event registration and handlers
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("ADDON_LOADED")
@@ -218,6 +247,11 @@ frame:SetScript("OnEvent", function(self, event, ...)
             InitDB()
             CPL:debug("Database initialized")
             print("CPL: Loaded - Chat player level caching active")
+
+            -- Display monitored channels if debug mode is on
+            if CPL.debugMode then
+                CPL:debugChannels()
+            end
         end
     elseif event == "PLAYER_TARGET_CHANGED" then
         CPL:updateTarget()
@@ -252,6 +286,10 @@ local function FilterWhoResults(self, event, msg, ...)
 end
 
 ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", FilterWhoResults)
+
+--------------------------------------------------
+-- WHO Queue Processing
+--------------------------------------------------
 
 -- Process WHO queue on hardware events (mouse clicks)
 function CPL:processQueue()
@@ -301,6 +339,10 @@ WorldFrame:HookScript("OnMouseDown", function()
     CPL:processQueue()
 end)
 
+--------------------------------------------------
+-- Debug & Utility Functions
+--------------------------------------------------
+
 -- Debug output function
 function CPL:debug(...)
     if self.debugMode then
@@ -334,6 +376,21 @@ function CPL:debugQueue()
     end
     print("Total: " .. count .. " players")
     print("=====================")
+end
+
+-- Show monitored channels
+function CPL:debugChannels()
+    self:debug("Monitoring channels:")
+    for channelNum, config in pairs(self.channelConfig) do
+        if config.enabled then
+            local channelID, channelName = GetChannelName(channelNum)
+            if channelID > 0 then
+                self:debug("  Channel " .. channelNum .. ": " .. channelName)
+            else
+                self:debug("  Channel " .. channelNum .. ": (not joined)")
+            end
+        end
+    end
 end
 
 -- Show help text (auto-generated from commands table)

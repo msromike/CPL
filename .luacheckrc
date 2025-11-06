@@ -42,6 +42,7 @@ read_globals = {
     "UnitIsFriend",
     "time",
     "WorldFrame",
+    "GetChannelName",
 }
 
 globals = {

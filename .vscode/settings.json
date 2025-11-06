@@ -40,8 +40,16 @@
         "time",
         "SlashCmdList",
         "print",
+        "pairs",
+        "ipairs",
+        "next",
+        "type",
+        "tostring",
+        "tonumber",
         "_G",
-        "WorldFrame"
+        "WorldFrame",
+        "GetChannelName",
+        "SLASH_CPL1"
     ],
     "Lua.workspace.ignoreDir": [
         "archive/",

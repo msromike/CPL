@@ -1,0 +1,48 @@
+Proposed Logical Organization
+Namespace & Configuration (what is this addon?)
+
+CPL namespace
+Config variables (cacheExpiry, debugMode, etc.)
+Slash Commands & Command Routing (user interface - test/inspect)
+
+Command table
+Slash command handler
+Easy for devs to see how to interact with addon
+Event Registration & Initialization (how does it start?)
+
+CreateFrame and event registration
+ADDON_LOADED handler with InitDB()
+Event routing to functions
+Player Detection Functions (data collection - unit frames)
+
+updateTarget()
+updateMouseOver()
+updateParty()
+updateRaid()
+Chat Channel Monitoring (data collection - chat)
+
+Channel config
+OnChannelChat() filter
+WHO Query System (server queries)
+
+processWhoResults()
+FilterWhoResults()
+WHO Queue Processing (queue management)
+
+processQueue()
+Mouse hook
+Core Database Functions (storage layer - used by all above)
+
+InitDB()
+addName()
+getLevel()
+Debug & Utility Functions (inspection tools)
+
+debug()
+toggleDebug()
+debugCache()
+debugQueue()
+showHelp()
+Flow: Config → Commands → Init → Collect Data → Store Data → Inspect Data
+
+Ready to reorganize?
