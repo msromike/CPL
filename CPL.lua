@@ -197,8 +197,8 @@ function CPL:processWhoResults()
         local info = C_FriendList.GetWhoInfo(i)
         if info and info.fullName and info.level then
             if info.fullName:lower() == targetName:lower() then
-                -- Store the data we found
-                self:addName(info.fullName, info.level, "WHO")
+                -- Print to console for now (testing)
+                print("WHO RESULT:", info.fullName, "- Level", info.level)
             end
         end
     end
@@ -265,8 +265,25 @@ function CPL:processQueue()
         -- Remove from queue
         self.WhoQueue[nextPlayer] = nil
 
-        -- Debug output - just testing the hook for now
-        self:debug("HARDWARE EVENT: Popped", nextPlayer, "from WHO queue")
+        -- Send WHO query
+        self:debug("HARDWARE EVENT: Sending WHO query for", nextPlayer)
+
+        -- Store target for result processing
+        self.whoTarget = nextPlayer
+
+        -- Register for WHO results
+        if not self.whoFrame then
+            self.whoFrame = CreateFrame("Frame")
+            self.whoFrame:SetScript("OnEvent", function(frame, event)
+                if event == "WHO_LIST_UPDATE" then
+                    CPL:processWhoResults()
+                    frame:UnregisterEvent("WHO_LIST_UPDATE")
+                end
+            end)
+        end
+
+        self.whoFrame:RegisterEvent("WHO_LIST_UPDATE")
+        C_FriendList.SendWho(nextPlayer)
     end
 end
 
