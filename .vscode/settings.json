@@ -52,8 +52,7 @@
         "SLASH_CPL1"
     ],
     "Lua.workspace.ignoreDir": [
-        "archive/",
-        "Prat-3.0/",
-        "Ace3/"
-    ]
+        "archive/"
+    ],
+    "search.useIgnoreFiles": false
 }
