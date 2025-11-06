@@ -18,88 +18,45 @@ function CPL:toggleDebug()
     print("CPL Debug mode:", self.debugMode and "ON" or "OFF")
 end
 
--- Memory cache (session only) - Prat style
-CPL.Classes = {}      -- [playername:lower()] = "CLASS"
-CPL.Levels = {}       -- [playername:lower()] = level_number
-CPL.Subgroups = {}    -- [playername:lower()] = subgroup_number
-CPL.Timestamps = {}   -- [playername:lower()] = epoch_time
-
 -- Persistent storage - create on init if missing
 local function InitDB()
     if not CPLDB then
         CPLDB = {
-            realm = {
-                classes = {},  -- [playername:lower()] = "CLASS"
-                levels = {}    -- [playername:lower()] = level_number
-            }
+            players = {}  -- [playername:lower()] = {level, timestamp}
         }
     end
 end
 
--- Core function to store player data - based on Prat's addName()
-function CPL:addName(Name, Server, Class, Level, SubGroup, Source)
-    if Name then
-        -- Build full name with server suffix if provided
-        Name = Name .. (Server and Server:len() > 0 and ("-" .. Server) or "")
-        local key = Name:lower()
+-- Core function to store player data
+function CPL:addName(Name, Level, Source)
+    local key = Name and Name:lower()
+    local existing = key and CPLDB.players[key]
 
-        -- Store level data
-        if Level and Level > 0 then
-            self.Levels[key] = Level
-            CPLDB.realm.levels[key] = Level
-
-            -- Track when we got this data
-            local now = time()
-            self.Timestamps[key] = now
-
-            -- Debug output with timestamp
-            self:debug(Source .. ":", Name, "-", Level, "-", Class, "[" .. now .. "]")
-        else
-            -- Debug output without timestamp
-            self:debug(Source .. ":", Name, "-", Level, "-", Class)
-        end
-
-        -- Store class data
-        if Class then
-            self.Classes[key] = Class
-            CPLDB.realm.classes[key] = Class
-        end        -- Store subgroup data (memory only)
-        if SubGroup then
-            self.Subgroups[key] = SubGroup
-            self:debug("Stored subgroup", SubGroup, "for", key)
-        end
+    -- Skip if invalid data or already cached at max level (immutable)
+    if not (Name and Level and Level > 0) or (existing and existing[1] == 60) then
+        return
     end
+
+    local now = time()
+    CPLDB.players[key] = {Level, now}
+
+    -- Debug output
+    self:debug(Source .. ":", Name, "-", Level, "[" .. now .. "]")
 end
 
--- Retrieval functions - check memory first, then persistent
+-- Retrieval function
 function CPL:getLevel(player)
     local key = player:lower()
-    return self.Levels[key] or CPLDB.realm.levels[key]
-end
-
-function CPL:getClass(player)
-    local key = player:lower()
-    return self.Classes[key] or CPLDB.realm.classes[key]
-end
-
-function CPL:getSubgroup(player)
-    return self.Subgroups[player:lower()]
+    local data = CPLDB.players[key]
+    return data and data[1]
 end
 
 -- Debug function to inspect cache contents
 function CPL:debugCache()
     print("=== CPL CACHE DEBUG ===")
-    print("Memory Levels:")
-    for name, level in pairs(self.Levels) do
-        print("  " .. name .. " = " .. level)
-    end
-    print("Memory Classes:")
-    for name, class in pairs(self.Classes) do
-        print("  " .. name .. " = " .. class)
-    end
-    print("Persistent Levels:")
-    for name, level in pairs(CPLDB.realm.levels) do
-        print("  " .. name .. " = " .. level)
+    print("Players:")
+    for name, data in pairs(CPLDB.players) do
+        print("  " .. name .. " = level " .. data[1] .. " [" .. data[2] .. "]")
     end
     print("======================")
 end
@@ -148,51 +105,46 @@ SlashCmdList["CPL"] = function(msg)
     end
 end
 
--- Target detection function - based on Prat's updateTarget()
+-- Target detection function
 function CPL:updateTarget()
-    local Class, Name, Server
     if not UnitIsPlayer("target") or not UnitIsFriend("player", "target") then
         return
     end
-    Class = select(2, UnitClass("target"))
-    Name, Server = UnitName("target")
-    self:addName(Name, Server, Class, UnitLevel("target"), nil, "TARGET")
+    local Name = UnitName("target")
+    self:addName(Name, UnitLevel("target"), "TARGET")
 end
 
--- MouseOver detection function - based on Prat's updateMouseOver()
+-- MouseOver detection function
 function CPL:updateMouseOver()
-    local Class, Name, Server
     if not UnitIsPlayer("mouseover") or not UnitIsFriend("player", "mouseover") then
         return
     end
-    Class = select(2, UnitClass("mouseover"))
-    Name, Server = UnitName("mouseover")
-    self:addName(Name, Server, Class, UnitLevel("mouseover"), nil, "MOUSE")
-end-- Party detection function - based on Prat's updateParty()
+    local Name = UnitName("mouseover")
+    self:addName(Name, UnitLevel("mouseover"), "MOUSE")
+end
+
+-- Party detection function
 function CPL:updateParty()
-    local Class, Unit, Name, Server
     for i = 1, GetNumSubgroupMembers() do
-        Unit = "party" .. i
-        _, Class = UnitClass(Unit)
-        Name, Server = UnitName(Unit)
-        self:addName(Name, Server, Class, UnitLevel(Unit), nil, "PARTY")
+        local Unit = "party" .. i
+        local Name = UnitName(Unit)
+        self:addName(Name, UnitLevel(Unit), "PARTY")
     end
 end
 
--- Raid detection function - based on Prat's updateRaid()
+-- Raid detection function
 function CPL:updateRaid()
-    local Name, Class, SubGroup, Level, Server, rank
     for i = 1, GetNumGroupMembers() do
-        _, rank, SubGroup, Level, _, Class = GetRaidRosterInfo(i)
-        Name, Server = UnitName("raid" .. i)
-        self:addName(Name, Server, Class, Level, SubGroup, "RAID")
+        local _, _, _, Level = GetRaidRosterInfo(i)
+        local Name = UnitName("raid" .. i)
+        self:addName(Name, Level, "RAID")
     end
 end
 
 -- WHO test function - sends query and processes results
 function CPL:testWho(targetName)
-    if not targetName or #targetName < 3 then
-        print("CPL: Name must be at least 3 characters for WHO search")
+    if not targetName or #targetName < 1 then
+        print("CPL: Name required for WHO search")
         return
     end
 
@@ -230,7 +182,7 @@ function CPL:processWhoResults()
         if info and info.fullName and info.level then
             if info.fullName:lower() == targetName:lower() then
                 -- Store the data we found
-                self:addName(info.fullName, nil, info.filename, info.level, nil, "WHO")
+                self:addName(info.fullName, info.level, "WHO")
             end
         end
     end
