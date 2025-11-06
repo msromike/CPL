@@ -39,6 +39,7 @@ read_globals = {
     "GetNumGuildMembers",
     "GetGuildRosterInfo",
     "UnitIsFriend",
+    "time",
 }
 
 globals = {

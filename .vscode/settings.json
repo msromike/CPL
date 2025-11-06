@@ -36,6 +36,7 @@
         "GetNumGuildMembers",
         "GetGuildRosterInfo",
         "UnitIsFriend",
+        "time",
         "SlashCmdList",
         "print",
         "_G"

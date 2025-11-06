@@ -22,6 +22,7 @@ end
 CPL.Classes = {}      -- [playername:lower()] = "CLASS"
 CPL.Levels = {}       -- [playername:lower()] = level_number
 CPL.Subgroups = {}    -- [playername:lower()] = subgroup_number
+CPL.Timestamps = {}   -- [playername:lower()] = epoch_time
 
 -- Persistent storage - create on init if missing
 local function InitDB()
@@ -42,13 +43,20 @@ function CPL:addName(Name, Server, Class, Level, SubGroup, Source)
         Name = Name .. (Server and Server:len() > 0 and ("-" .. Server) or "")
         local key = Name:lower()
 
-        -- Single clean debug line showing source
-        self:debug(Source .. ":", Name, "-", Level, "-", Class)
-
         -- Store level data
         if Level and Level > 0 then
             self.Levels[key] = Level
             CPLDB.realm.levels[key] = Level
+
+            -- Track when we got this data
+            local now = time()
+            self.Timestamps[key] = now
+
+            -- Debug output with timestamp
+            self:debug(Source .. ":", Name, "-", Level, "-", Class, "[" .. now .. "]")
+        else
+            -- Debug output without timestamp
+            self:debug(Source .. ":", Name, "-", Level, "-", Class)
         end
 
         -- Store class data
