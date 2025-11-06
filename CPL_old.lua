@@ -3,7 +3,7 @@
 -- Original Prat-3.0: Copyright (C) 2006-2018 Prat Development Team (GPL v2)
 --
 -- Slash Commands:
---   /cpl debug  - Toggle debug output (default ON)
+--   /cpl debug  - Toggle debug output (defualt ON)
 --   /cpl cache  - Show cached player levels
 --   /cpl queue  - Show WHO query queue
 --   /cpl help   - List all commands
@@ -24,13 +24,42 @@ CPL.debugMode = true
 -- WHO query queue (cache in memory)
 CPL.WhoQueue = {}
 
--- Channel configuration (future GUI will modify this)
--- Note: No hard-coded names - using dynamic channelName from game events
-CPL.channelConfig = {}
+--------------------------------------------------
+-- Core Database Functions
+--------------------------------------------------
 
--- Initialize all channels 1-7 as enabled by default
-for i = 1, 7 do
-    CPL.channelConfig[i] = {enabled = true}
+-- Persistent storage - create on init if missing
+local function InitDB()
+    if not CPLDB then
+        CPLDB = {
+            players = {}  -- [playername:lower()] = {level, timestamp}
+        }
+    end
+end
+
+-- Core function to store player data
+function CPL:addName(Name, Level, Source)
+    local key = Name and Name:lower()
+    local existing = key and CPLDB.players[key]
+
+    -- Skip if invalid data or already cached at max level
+    if not (Name and Level and Level > 0) or (existing and existing[1] == 60) then
+        return
+    end
+
+    -- Store level with timestamp: {level, timestamp}
+    local now = time()
+    CPLDB.players[key] = {Level, now}
+
+    -- Debug output
+    self:debug(Source .. ":", Name, "-", Level, "[" .. now .. "]")
+end
+
+-- Retrieval function - returns level only, ignores timestamp
+function CPL:getLevel(player)
+    local key = player:lower()
+    local data = CPLDB.players[key]
+    return data and data[1]
 end
 
 --------------------------------------------------
@@ -64,55 +93,6 @@ SlashCmdList["CPL"] = function(msg)
         CPL:showHelp()
     end
 end
-
---------------------------------------------------
--- Event Registration & Initialization
---------------------------------------------------
-
--- Persistent storage - create on init if missing
-local function InitDB()
-    if not CPLDB then
-        CPLDB = {
-            players = {}  -- [playername:lower()] = {level, timestamp}
-        }
-    end
-end
-
--- Event registration and handlers
-local frame = CreateFrame("Frame")
-frame:RegisterEvent("ADDON_LOADED")
-frame:RegisterEvent("PLAYER_TARGET_CHANGED")
-frame:RegisterEvent("UPDATE_MOUSEOVER_UNIT")
-frame:RegisterEvent("GROUP_ROSTER_UPDATE")
-frame:RegisterEvent("CHAT_MSG_SYSTEM")
-frame:SetScript("OnEvent", function(self, event, ...)
-    if event == "ADDON_LOADED" then
-        local addonName = ...
-        if addonName == "CPL" then
-            InitDB()
-            CPL:debug("Database initialized")
-            print("CPL: Loaded - Chat player level caching active")
-
-            -- Display monitored channels if debug mode is on
-            if CPL.debugMode then
-                CPL:debugChannels()
-            end
-        end
-    elseif event == "PLAYER_TARGET_CHANGED" then
-        CPL:updateTarget()
-    elseif event == "UPDATE_MOUSEOVER_UNIT" then
-        CPL:updateMouseOver()
-    elseif event == "GROUP_ROSTER_UPDATE" then
-        if IsInRaid() then
-            CPL:updateRaid()
-        else
-            CPL:updateParty()
-        end
-    elseif event == "CHAT_MSG_SYSTEM" then
-        -- WHO results come through CHAT_MSG_SYSTEM in Classic Era
-        CPL:processWhoResults()
-    end
-end)
 
 --------------------------------------------------
 -- Player Detection Functions
@@ -155,8 +135,54 @@ function CPL:updateRaid()
 end
 
 --------------------------------------------------
+-- WHO Query System
+--------------------------------------------------
+
+-- Process WHO results when CHAT_MSG_SYSTEM fires
+function CPL:processWhoResults()
+    local targetName = self.whoTarget
+    if not targetName then return end
+
+    -- Process WHO results using modern API
+    local numResults = C_FriendList.GetNumWhoResults()
+
+    if numResults == 0 then
+        -- No results = player offline/doesn't exist
+        -- Remove from queue so we don't get stuck
+        self.WhoQueue[targetName] = nil
+        self:debug("WHO: No results for", targetName, "- removed from queue")
+    else
+        for i = 1, numResults do
+            local info = C_FriendList.GetWhoInfo(i)
+            if info and info.fullName and info.level then
+                if info.fullName:lower() == targetName:lower() then
+                    -- Cache the result (this also removes from queue via addName logic)
+                    self:addName(info.fullName, info.level, "WHO")
+                end
+            end
+        end
+    end
+
+    -- Clean up
+    self.whoTarget = nil
+    -- Delay clearing suppressWho flag so "total" line also gets filtered
+    C_Timer.After(0.1, function()
+        CPL.suppressWho = false
+    end)
+end
+
+--------------------------------------------------
 -- Chat Channel Monitoring
 --------------------------------------------------
+
+-- Channel configuration (future GUI will modify this)
+-- Note: No hard-coded names - using dynamic channelName from game events
+CPL.channelConfig = {}
+
+-- Initialize all channels 1-7 as enabled by default
+for i = 1, 7 do
+    CPL.channelConfig[i] = {enabled = true}
+end
 
 -- Chat message processing function
 local function OnChannelChat(self, event, msg, author, language, channelString, target, flags, unknown, channelNumber, channelName, ...)
@@ -203,45 +229,48 @@ local function OnChannelChat(self, event, msg, author, language, channelString, 
     return false -- Pass through unchanged
 end
 
--- Register chat message filter for channel monitoring
-ChatFrame_AddMessageEventFilter("CHAT_MSG_CHANNEL", OnChannelChat)
-
 --------------------------------------------------
--- WHO Query System
+-- Event Registration & Initialization
 --------------------------------------------------
 
--- Process WHO results when CHAT_MSG_SYSTEM fires
-function CPL:processWhoResults()
-    local targetName = self.whoTarget
-    if not targetName then return end
+-- Event registration and handlers
+local frame = CreateFrame("Frame")
+frame:RegisterEvent("ADDON_LOADED")
+frame:RegisterEvent("PLAYER_TARGET_CHANGED")
+frame:RegisterEvent("UPDATE_MOUSEOVER_UNIT")
+frame:RegisterEvent("GROUP_ROSTER_UPDATE")
+frame:RegisterEvent("CHAT_MSG_SYSTEM")
+frame:SetScript("OnEvent", function(self, event, ...)
+    if event == "ADDON_LOADED" then
+        local addonName = ...
+        if addonName == "CPL" then
+            InitDB()
+            CPL:debug("Database initialized")
+            print("CPL: Loaded - Chat player level caching active")
 
-    -- Process WHO results using modern API
-    local numResults = C_FriendList.GetNumWhoResults()
-
-    if numResults == 0 then
-        -- No results = player offline/doesn't exist
-        -- Remove from queue so we don't get stuck
-        self.WhoQueue[targetName] = nil
-        self:debug("WHO: No results for", targetName, "- removed from queue")
-    else
-        for i = 1, numResults do
-            local info = C_FriendList.GetWhoInfo(i)
-            if info and info.fullName and info.level then
-                if info.fullName:lower() == targetName:lower() then
-                    -- Cache the result (this also removes from queue via addName logic)
-                    self:addName(info.fullName, info.level, "WHO")
-                end
+            -- Display monitored channels if debug mode is on
+            if CPL.debugMode then
+                CPL:debugChannels()
             end
         end
+    elseif event == "PLAYER_TARGET_CHANGED" then
+        CPL:updateTarget()
+    elseif event == "UPDATE_MOUSEOVER_UNIT" then
+        CPL:updateMouseOver()
+    elseif event == "GROUP_ROSTER_UPDATE" then
+        if IsInRaid() then
+            CPL:updateRaid()
+        else
+            CPL:updateParty()
+        end
+    elseif event == "CHAT_MSG_SYSTEM" then
+        -- WHO results come through CHAT_MSG_SYSTEM in Classic Era
+        CPL:processWhoResults()
     end
+end)
 
-    -- Clean up
-    self.whoTarget = nil
-    -- Delay clearing suppressWho flag so "total" line also gets filtered
-    C_Timer.After(0.1, function()
-        CPL.suppressWho = false
-    end)
-end
+-- Register chat message filter for channel monitoring
+ChatFrame_AddMessageEventFilter("CHAT_MSG_CHANNEL", OnChannelChat)
 
 -- Filter to suppress WHO results generated by addon (but not player manual /who)
 local function FilterWhoResults(self, event, msg, ...)
@@ -309,35 +338,6 @@ end
 WorldFrame:HookScript("OnMouseDown", function()
     CPL:processQueue()
 end)
-
---------------------------------------------------
--- Core Database Functions
---------------------------------------------------
-
--- Core function to store player data
-function CPL:addName(Name, Level, Source)
-    local key = Name and Name:lower()
-    local existing = key and CPLDB.players[key]
-
-    -- Skip if invalid data or already cached at max level
-    if not (Name and Level and Level > 0) or (existing and existing[1] == 60) then
-        return
-    end
-
-    -- Store level with timestamp: {level, timestamp}
-    local now = time()
-    CPLDB.players[key] = {Level, now}
-
-    -- Debug output
-    self:debug(Source .. ":", Name, "-", Level, "[" .. now .. "]")
-end
-
--- Retrieval function - returns level only, ignores timestamp
-function CPL:getLevel(player)
-    local key = player:lower()
-    local data = CPLDB.players[key]
-    return data and data[1]
-end
 
 --------------------------------------------------
 -- Debug & Utility Functions
