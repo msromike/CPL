@@ -237,13 +237,17 @@ function CPL:processQueue()
     -- Get next player from queue
     local nextPlayer = next(self.WhoQueue)
     if nextPlayer then
-        -- Remove from queue
-        self.WhoQueue[nextPlayer] = nil
+        -- Check if now cached (from previous successful query)
+        if CPLDB.players[nextPlayer] then
+            -- Success! Remove from queue
+            self.WhoQueue[nextPlayer] = nil
+            self:debug("QUEUE: Removed cached player", nextPlayer)
+            return
+        end
 
-        -- Store target for result processing
+        -- Not cached yet, send WHO query
+        -- Keep in queue for retry if query fails
         self.whoTarget = nextPlayer
-
-        -- Send WHO query (event already registered on main frame)
         self:debug("HARDWARE EVENT: Sending WHO query for", nextPlayer)
         C_FriendList.SendWho(nextPlayer)
     end
