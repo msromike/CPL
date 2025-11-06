@@ -40,6 +40,7 @@ read_globals = {
     "GetGuildRosterInfo",
     "UnitIsFriend",
     "time",
+    "WorldFrame",
 }
 
 globals = {

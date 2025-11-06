@@ -257,4 +257,22 @@ end)
 -- Register chat message filter for channel monitoring
 ChatFrame_AddMessageEventFilter("CHAT_MSG_CHANNEL", OnChannelChat)
 
+-- Process WHO queue on hardware events (mouse clicks)
+function CPL:processQueue()
+    -- Get next player from queue
+    local nextPlayer = next(self.WhoQueue)
+    if nextPlayer then
+        -- Remove from queue
+        self.WhoQueue[nextPlayer] = nil
+
+        -- Debug output - just testing the hook for now
+        self:debug("HARDWARE EVENT: Popped", nextPlayer, "from WHO queue")
+    end
+end
+
+-- Hook mouse clicks to process queue
+WorldFrame:HookScript("OnMouseDown", function()
+    CPL:processQueue()
+end)
+
 print("CPL: Core database system loaded with chat monitoring")

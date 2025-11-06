@@ -39,7 +39,8 @@
         "time",
         "SlashCmdList",
         "print",
-        "_G"
+        "_G",
+        "WorldFrame"
     ],
     "Lua.workspace.ignoreDir": [
         "archive/",
