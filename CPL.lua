@@ -97,7 +97,6 @@ CPL.commands = {
     debug = {func = "toggleDebug", desc = "Toggle debug mode on/off"},
     cache = {func = "debugCache", desc = "Show cache contents"},
     queue = {func = "debugQueue", desc = "Show WHO queue contents"},
-    who = {func = "testWho", args = "<name>", desc = "Test WHO query for player"},
     help = {func = "showHelp", desc = "Show this help"}
 }
 
@@ -157,35 +156,7 @@ function CPL:updateRaid()
     end
 end
 
--- WHO test function - sends query and processes results
-function CPL:testWho(targetName)
-    if not targetName or #targetName < 1 then
-        print("CPL: Name required for WHO search")
-        return
-    end
-
-    -- Store target name for result processing
-    self.whoTarget = targetName
-
-    -- Register for WHO results
-    if not self.whoFrame then
-        self.whoFrame = CreateFrame("Frame")
-        self.whoFrame:SetScript("OnEvent", function(frame, event)
-            if event == "WHO_LIST_UPDATE" then
-                CPL:processWhoResults()
-                -- Clean up - unregister until next query
-                frame:UnregisterEvent("WHO_LIST_UPDATE")
-            end
-        end)
-    end
-
-    self.whoFrame:RegisterEvent("WHO_LIST_UPDATE")
-
-    -- Send the WHO query using modern API
-    C_FriendList.SendWho(targetName)
-end
-
--- Process WHO results when WHO_LIST_UPDATE fires
+-- Process WHO results when CHAT_MSG_SYSTEM fires
 function CPL:processWhoResults()
     local targetName = self.whoTarget
     if not targetName then return end
@@ -197,8 +168,8 @@ function CPL:processWhoResults()
         local info = C_FriendList.GetWhoInfo(i)
         if info and info.fullName and info.level then
             if info.fullName:lower() == targetName:lower() then
-                -- Print to console for now (testing)
-                print("WHO RESULT:", info.fullName, "- Level", info.level)
+                -- Cache the result
+                self:addName(info.fullName, info.level, "WHO")
             end
         end
     end
@@ -240,7 +211,8 @@ local frame = CreateFrame("Frame")
 frame:RegisterEvent("PLAYER_TARGET_CHANGED")
 frame:RegisterEvent("UPDATE_MOUSEOVER_UNIT")
 frame:RegisterEvent("GROUP_ROSTER_UPDATE")
-frame:SetScript("OnEvent", function(self, event)
+frame:RegisterEvent("CHAT_MSG_SYSTEM")
+frame:SetScript("OnEvent", function(self, event, ...)
     if event == "PLAYER_TARGET_CHANGED" then
         CPL:updateTarget()
     elseif event == "UPDATE_MOUSEOVER_UNIT" then
@@ -251,6 +223,9 @@ frame:SetScript("OnEvent", function(self, event)
         else
             CPL:updateParty()
         end
+    elseif event == "CHAT_MSG_SYSTEM" then
+        -- WHO results come through CHAT_MSG_SYSTEM in Classic Era
+        CPL:processWhoResults()
     end
 end)
 
@@ -265,24 +240,11 @@ function CPL:processQueue()
         -- Remove from queue
         self.WhoQueue[nextPlayer] = nil
 
-        -- Send WHO query
-        self:debug("HARDWARE EVENT: Sending WHO query for", nextPlayer)
-
         -- Store target for result processing
         self.whoTarget = nextPlayer
 
-        -- Register for WHO results
-        if not self.whoFrame then
-            self.whoFrame = CreateFrame("Frame")
-            self.whoFrame:SetScript("OnEvent", function(frame, event)
-                if event == "WHO_LIST_UPDATE" then
-                    CPL:processWhoResults()
-                    frame:UnregisterEvent("WHO_LIST_UPDATE")
-                end
-            end)
-        end
-
-        self.whoFrame:RegisterEvent("WHO_LIST_UPDATE")
+        -- Send WHO query (event already registered on main frame)
+        self:debug("HARDWARE EVENT: Sending WHO query for", nextPlayer)
         C_FriendList.SendWho(nextPlayer)
     end
 end
