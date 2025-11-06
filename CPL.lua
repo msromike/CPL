@@ -1,28 +1,24 @@
 -- CPL - Chat Player Levels
--- Minimal Prat-style level caching system
+-- Inspired by Prat-3.0's player level caching approach
+-- Original Prat-3.0: Copyright (C) 2006-2018 Prat Development Team (GPL v2)
+--
+-- Slash Commands:
+--   /cpl debug  - Toggle debug output (defualt ON)
+--   /cpl cache  - Show cached player levels
+--   /cpl queue  - Show WHO query queue
+--   /cpl help   - List all commands
 
 -- Addon namespace
 local CPL = {}
 
--- Debug system - easily toggleable
+-- Player scan cache expiry time in seconds (2 hours)
+CPL.cacheExpiry = 7200
+
+-- Debug mode flag
 CPL.debugMode = true
 
-function CPL:debug(...)
-    if self.debugMode then
-        print("CPL DEBUG:", ...)
-    end
-end
-
-function CPL:toggleDebug()
-    self.debugMode = not self.debugMode
-    print("CPL Debug mode:", self.debugMode and "ON" or "OFF")
-end
-
--- WHO query queue (memory only)
+-- WHO query queue (cache in memory)
 CPL.WhoQueue = {}
-
--- Cache expiry time in seconds (2 hours)
-CPL.cacheExpiry = 7200
 
 -- Persistent storage - create on init if missing
 local function InitDB()
@@ -38,11 +34,12 @@ function CPL:addName(Name, Level, Source)
     local key = Name and Name:lower()
     local existing = key and CPLDB.players[key]
 
-    -- Skip if invalid data or already cached at max level (immutable)
+    -- Skip if invalid data or already cached at max level
     if not (Name and Level and Level > 0) or (existing and existing[1] == 60) then
         return
     end
 
+    -- Store level with timestamp: {level, timestamp}
     local now = time()
     CPLDB.players[key] = {Level, now}
 
@@ -50,50 +47,12 @@ function CPL:addName(Name, Level, Source)
     self:debug(Source .. ":", Name, "-", Level, "[" .. now .. "]")
 end
 
--- Retrieval function
+-- Retrieval function - returns level only, ignores timestamp
 function CPL:getLevel(player)
     local key = player:lower()
     local data = CPLDB.players[key]
     return data and data[1]
 end
-
--- Debug function to inspect cache contents
-function CPL:debugCache()
-    print("=== CPL CACHE DEBUG ===")
-    print("Players:")
-    for name, data in pairs(CPLDB.players) do
-        print("  " .. name .. " = level " .. data[1] .. " [" .. data[2] .. "]")
-    end
-    print("======================")
-end
-
--- Debug function to inspect WHO queue
-function CPL:debugQueue()
-    print("=== CPL WHO QUEUE ===")
-    local count = 0
-    for name, _ in pairs(self.WhoQueue) do
-        print("  " .. name)
-        count = count + 1
-    end
-    print("Total: " .. count .. " players")
-    print("=====================")
-end
-
--- Show help text (auto-generated from commands table)
-function CPL:showHelp()
-    print("CPL Commands:")
-    for cmd, info in pairs(CPL.commands) do
-        local usage = "/cpl " .. cmd
-        if info.args then
-            usage = usage .. " " .. info.args
-        end
-        print("  " .. usage .. " - " .. info.desc)
-    end
-end
-
--- Initialize database on load
-InitDB()
-CPL:debug("Database initialized")
 
 -- Command table for easy extension (one line to add new commands)
 CPL.commands = {
@@ -247,12 +206,20 @@ end
 
 -- Event registration and handlers
 local frame = CreateFrame("Frame")
+frame:RegisterEvent("ADDON_LOADED")
 frame:RegisterEvent("PLAYER_TARGET_CHANGED")
 frame:RegisterEvent("UPDATE_MOUSEOVER_UNIT")
 frame:RegisterEvent("GROUP_ROSTER_UPDATE")
 frame:RegisterEvent("CHAT_MSG_SYSTEM")
 frame:SetScript("OnEvent", function(self, event, ...)
-    if event == "PLAYER_TARGET_CHANGED" then
+    if event == "ADDON_LOADED" then
+        local addonName = ...
+        if addonName == "CPL" then
+            InitDB()
+            CPL:debug("Database initialized")
+            print("CPL: Loaded - Chat player level caching active")
+        end
+    elseif event == "PLAYER_TARGET_CHANGED" then
         CPL:updateTarget()
     elseif event == "UPDATE_MOUSEOVER_UNIT" then
         CPL:updateMouseOver()
@@ -334,4 +301,49 @@ WorldFrame:HookScript("OnMouseDown", function()
     CPL:processQueue()
 end)
 
-print("CPL: Core database system loaded with chat monitoring")
+-- Debug output function
+function CPL:debug(...)
+    if self.debugMode then
+        print("CPL DEBUG:", ...)
+    end
+end
+
+-- Toggle debug mode on/off
+function CPL:toggleDebug()
+    self.debugMode = not self.debugMode
+    print("CPL Debug mode:", self.debugMode and "ON" or "OFF")
+end
+
+-- Show cache contents
+function CPL:debugCache()
+    print("=== CPL CACHE DEBUG ===")
+    print("Players:")
+    for name, data in pairs(CPLDB.players) do
+        print("  " .. name .. " = level " .. data[1] .. " [" .. data[2] .. "]")
+    end
+    print("======================")
+end
+
+-- Show WHO queue contents
+function CPL:debugQueue()
+    print("=== CPL WHO QUEUE ===")
+    local count = 0
+    for name, _ in pairs(self.WhoQueue) do
+        print("  " .. name)
+        count = count + 1
+    end
+    print("Total: " .. count .. " players")
+    print("=====================")
+end
+
+-- Show help text (auto-generated from commands table)
+function CPL:showHelp()
+    print("CPL Commands:")
+    for cmd, info in pairs(CPL.commands) do
+        local usage = "/cpl " .. cmd
+        if info.args then
+            usage = usage .. " " .. info.args
+        end
+        print("  " .. usage .. " - " .. info.desc)
+    end
+end
