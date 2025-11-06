@@ -21,6 +21,9 @@ end
 -- WHO query queue (memory only)
 CPL.WhoQueue = {}
 
+-- Cache expiry time in seconds (2 hours)
+CPL.cacheExpiry = 7200
+
 -- Persistent storage - create on init if missing
 local function InitDB()
     if not CPLDB then
@@ -188,21 +191,46 @@ CPL.channelConfig = {
 
 -- Chat message processing function
 local function OnChannelChat(self, event, msg, author, language, channelString, target, flags, unknown, channelNumber, channelName, ...)
-    -- Check if this channel is enabled
-    if CPL.channelConfig[channelNumber] and CPL.channelConfig[channelNumber].enabled then
-        -- Strip realm suffix (retail client artifact - not used in Classic Era)
-        local playerName = strsplit("-", author, 2)
-        local key = playerName:lower()
-
-        -- Check if player needs WHO query (not in cache and not already queued)
-        if not CPLDB.players[key] and not CPL.WhoQueue[key] then
-            CPL.WhoQueue[key] = true
-            CPL:debug("QUEUE: Added", playerName, "to WHO queue")
-        end
-
-        -- Debug output
-        CPL:debug("CHAT - Channel " .. channelNumber .. " (" .. (channelName or "Unknown") .. "): " .. playerName)
+    -- Check if this channel is enabled (most frequent check)
+    if not (CPL.channelConfig[channelNumber] and CPL.channelConfig[channelNumber].enabled) then
+        return false
     end
+
+    -- Strip realm suffix (retail client artifact - not used in Classic Era)
+    local playerName = strsplit("-", author, 2)
+    local key = playerName:lower()
+
+    -- Check cache status
+    local data = CPLDB.players[key]
+    
+    -- Early exit: Already queued (avoid duplicate work)
+    if CPL.WhoQueue[key] then
+        CPL:debug("CHAT - Channel " .. channelNumber .. " (" .. (channelName or "Unknown") .. "): " .. playerName)
+        return false
+    end
+
+    -- Not cached at all? Queue immediately (2nd most common for new players)
+    if not data then
+        CPL.WhoQueue[key] = true
+        CPL:debug("QUEUE: Added", playerName, "to WHO queue (new)")
+        CPL:debug("CHAT - Channel " .. channelNumber .. " (" .. (channelName or "Unknown") .. "): " .. playerName)
+        return false
+    end
+
+    -- Level 60? Never update (most common for cached players)
+    if data[1] == 60 then
+        CPL:debug("CHAT - Channel " .. channelNumber .. " (" .. (channelName or "Unknown") .. "): " .. playerName)
+        return false
+    end
+
+    -- Cache stale (older than expiry)? Re-queue for update
+    local age = time() - data[2]
+    if age > CPL.cacheExpiry then
+        CPL.WhoQueue[key] = true
+        CPL:debug("QUEUE: Added", playerName, "to WHO queue (stale, age=" .. age .. "s)")
+    end
+
+    CPL:debug("CHAT - Channel " .. channelNumber .. " (" .. (channelName or "Unknown") .. "): " .. playerName)
     return false -- Pass through unchanged
 end
 
@@ -236,21 +264,41 @@ ChatFrame_AddMessageEventFilter("CHAT_MSG_CHANNEL", OnChannelChat)
 function CPL:processQueue()
     -- Get next player from queue
     local nextPlayer = next(self.WhoQueue)
-    if nextPlayer then
-        -- Check if now cached (from previous successful query)
-        if CPLDB.players[nextPlayer] then
-            -- Success! Remove from queue
-            self.WhoQueue[nextPlayer] = nil
-            self:debug("QUEUE: Removed cached player", nextPlayer)
-            return
-        end
-
-        -- Not cached yet, send WHO query
-        -- Keep in queue for retry if query fails
-        self.whoTarget = nextPlayer
-        self:debug("HARDWARE EVENT: Sending WHO query for", nextPlayer)
-        C_FriendList.SendWho(nextPlayer)
+    if not nextPlayer then
+        return -- Queue empty (most common case when no chat activity)
     end
+
+    local data = CPLDB.players[nextPlayer]
+    
+    -- Not cached at all? Send WHO query
+    if not data then
+        self.whoTarget = nextPlayer
+        self:debug("HARDWARE EVENT: Sending WHO query for", nextPlayer, "(new)")
+        C_FriendList.SendWho(nextPlayer)
+        return
+    end
+
+    -- Cached at level 60? Remove from queue (immutable, most common cached case)
+    if data[1] == 60 then
+        self.WhoQueue[nextPlayer] = nil
+        self:debug("QUEUE: Removed level 60 player", nextPlayer)
+        return
+    end
+
+    -- Check cache age
+    local age = time() - data[2]
+    
+    -- Cache fresh? Remove from queue
+    if age <= CPL.cacheExpiry then
+        self.WhoQueue[nextPlayer] = nil
+        self:debug("QUEUE: Removed fresh cached player", nextPlayer, "(age=" .. age .. "s)")
+        return
+    end
+
+    -- Cache stale? Send WHO query for update
+    self.whoTarget = nextPlayer
+    self:debug("HARDWARE EVENT: Sending WHO query for", nextPlayer, "(update, age=" .. age .. "s)")
+    C_FriendList.SendWho(nextPlayer)
 end
 
 -- Hook mouse clicks to process queue
