@@ -523,91 +523,11 @@ function CPL:toggleEnabled()
 end
 
 -- Toggle debug frame visibility
-function CPL:toggleDebugFrame()
-    local frame = _G["CPLDebugFrame"]
-    if frame then
-        if frame:IsShown() then
-            frame:Hide()
-        else
-            frame:Show()
-            -- Show toggle instructions when frame is raised
-            self:debug("SYSTEM", "- Debug frame active - Toggle with /cpl debugframe")
-        end
-    end
-end
-
--- Show cache contents
-function CPL:debugCache(filterName)
-    self:print("=== CPL CACHE DEBUG ===")
-
-    -- Build sorted cache table
-    local cache = {}
-    local filter = filterName and filterName:lower()
-    local oldestEpoch, newestEpoch
-
-    for name, data in pairs(CPLDB.players) do
-        if not filter or name:find(filter, 1, true) then
-            local epoch = data[2]
-            table.insert(cache, {
-                name = name,
-                level = data[1],
-                timestamp = date("%Y-%m-%d %H:%M:%S", epoch),
-                epoch = epoch
-            })
-
-            -- Track oldest and newest timestamps
-            if not oldestEpoch or epoch < oldestEpoch then oldestEpoch = epoch end
-            if not newestEpoch or epoch > newestEpoch then newestEpoch = epoch end
-        end
-    end
-
-    -- Sort by name
-    table.sort(cache, function(a, b) return a.name < b.name end)
-
-    -- Print summary when no filter (no dump)
-    if not filter then
-        self:print("Total Entries: " .. #cache)
-        if oldestEpoch then
-            self:print("First Timestamp: " .. date("%Y-%m-%d %H:%M:%S", oldestEpoch))
-            self:print("Last Timestamp: " .. date("%Y-%m-%d %H:%M:%S", newestEpoch))
-        end
-        self:print("======================")
-        return
-    end
-
-    -- Print filtered results with separators
-    for _, entry in ipairs(cache) do
-        self:print(string.format("%-15s | Lvl %2d | TS: %s", entry.name, entry.level, entry.timestamp))
-    end
-
-    self:print("Showing " .. #cache .. " player(s) matching '" .. filterName .. "'")
-    self:print("======================")
-end
-
--- Show WHO queue contents
-function CPL:debugQueue()
-    self:print("=== CPL WHO QUEUE ===")
-    local count = 0
-    for i, entry in ipairs(self.WhoQueue) do
-        local name, attempts = entry[1], entry[2]
-        self:print(string.format("  %d. %s (attempts: %d)", i, name, attempts))
-        count = count + 1
-    end
-    self:print("Total: " .. count .. " player(s)")
-    self:print("=====================")
-end
-
--- Show monitored channels
-function CPL:debugChannels()
-    for channelNum, config in pairs(self.channelConfig) do
-        if config.enabled then
-            local channelID, channelName = GetChannelName(channelNum)
-            if channelID > 0 then
-                self:debug("SYSTEM", "- Monitoring channel " .. channelNum .. " (" .. channelName .. ")")
-            end
-        end
-    end
-end
+-- Debug stubs - overridden by Debug.lua if loaded
+function CPL:toggleDebugFrame() end
+function CPL:debugCache(filterName) end
+function CPL:debugQueue() end
+function CPL:debugChannels() end
 
 -- Show help text (auto-generated from commands table)
 function CPL:showHelp()
