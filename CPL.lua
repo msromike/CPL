@@ -168,6 +168,75 @@ function CPL:formatAge(seconds)
 end
 
 --------------------------------------------------
+-- Core Database Functions
+--------------------------------------------------
+
+-- Core function to store player data
+function CPL:addName(Name, Level, Source)
+    local key = Name and Name:lower()
+    local existing = key and CPLDB.players[key]
+
+    -- Skip if invalid data
+    if not (Name and Level and Level > 0) then
+        return
+    end
+
+    -- Optimization: Skip if level unchanged and cache still fresh
+    local now = time()
+    if existing then
+        local cachedLevel, cachedTime = existing[1], existing[2]
+        if cachedLevel == Level and (now - cachedTime) < CPL.cacheExpiry then
+            return  -- Level unchanged and cache fresh, skip update
+        end
+    end
+
+    -- Store level with timestamp: {level, timestamp}
+    CPLDB.players[key] = {Level, now}
+
+    -- Skip debug output for guild scans (too verbose)
+    if Source == "GUILD" then
+        return
+    end
+
+    -- Debug output for other detection sources
+    if Source == "WHO" then
+        self:debug("WHO", "- Received [" .. Name .. "] - Lvl " .. Level)
+    elseif Source == "TARGET" and existing then
+        self:debug("DETECT", "- Cached target [" .. Name .. "] - Lvl " .. Level)
+    elseif Source == "MOUSE" and existing then
+        self:debug("DETECT", "- Cached mouse [" .. Name .. "] - Lvl " .. Level)
+    elseif (Source == "PARTY" or Source == "RAID") and existing then
+        self:debug("DETECT", "- Cached " .. Source:lower() .. " [" .. Name .. "] - Lvl " .. Level)
+    end
+end
+
+-- Retrieval function - returns level only, ignores timestamp
+function CPL:getLevel(player)
+    local key = player:lower()
+    local data = CPLDB.players[key]
+    return data and data[1]
+end
+
+--------------------------------------------------
+-- Debug & Utility Functions (Stubs)
+--------------------------------------------------
+
+-- Debug stub - overridden by Debug.lua if loaded
+function CPL:debug(category, ...) end
+
+-- Print to chat frame (for non-debug system messages like help, cache, etc)
+function CPL:print(...)
+    local msg = table.concat({...}, " ")
+    DEFAULT_CHAT_FRAME:AddMessage(msg, 1, 1, 1)
+end
+
+-- Debug stubs - overridden by Debug.lua if loaded
+function CPL:toggleDebug() end
+function CPL:toggleDebugFrame() end
+function CPL:debugQueue() end
+function CPL:debugChannels() end
+
+--------------------------------------------------
 -- Player Detection Functions
 --------------------------------------------------
 
@@ -449,73 +518,8 @@ WorldFrame:HookScript("OnMouseDown", function()
 end)
 
 --------------------------------------------------
--- Core Database Functions
+-- Command & Cache Display Functions
 --------------------------------------------------
-
--- Core function to store player data
-function CPL:addName(Name, Level, Source)
-    local key = Name and Name:lower()
-    local existing = key and CPLDB.players[key]
-
-    -- Skip if invalid data
-    if not (Name and Level and Level > 0) then
-        return
-    end
-
-    -- Optimization: Skip if level unchanged and cache still fresh
-    local now = time()
-    if existing then
-        local cachedLevel, cachedTime = existing[1], existing[2]
-        if cachedLevel == Level and (now - cachedTime) < CPL.cacheExpiry then
-            return  -- Level unchanged and cache fresh, skip update
-        end
-    end
-
-    -- Store level with timestamp: {level, timestamp}
-    CPLDB.players[key] = {Level, now}
-
-    -- Skip debug output for guild scans (too verbose)
-    if Source == "GUILD" then
-        return
-    end
-
-    -- Debug output for other detection sources
-    if Source == "WHO" then
-        self:debug("WHO", "- Received [" .. Name .. "] - Lvl " .. Level)
-    elseif Source == "TARGET" and existing then
-        self:debug("DETECT", "- Cached target [" .. Name .. "] - Lvl " .. Level)
-    elseif Source == "MOUSE" and existing then
-        self:debug("DETECT", "- Cached mouse [" .. Name .. "] - Lvl " .. Level)
-    elseif (Source == "PARTY" or Source == "RAID") and existing then
-        self:debug("DETECT", "- Cached " .. Source:lower() .. " [" .. Name .. "] - Lvl " .. Level)
-    end
-end
-
--- Retrieval function - returns level only, ignores timestamp
-function CPL:getLevel(player)
-    local key = player:lower()
-    local data = CPLDB.players[key]
-    return data and data[1]
-end
-
---------------------------------------------------
--- Debug & Utility Functions
---------------------------------------------------
-
--- Debug stub - overridden by Debug.lua if loaded
-function CPL:debug(category, ...) end
-
--- Print to chat frame (for non-debug system messages like help, cache, etc)
-function CPL:print(...)
-    local msg = table.concat({...}, " ")
-    DEFAULT_CHAT_FRAME:AddMessage(msg, 1, 1, 1)
-end
-
--- Debug stubs - overridden by Debug.lua if loaded
-function CPL:toggleDebug() end
-function CPL:toggleDebugFrame() end
-function CPL:debugQueue() end
-function CPL:debugChannels() end
 
 -- Show cache contents (core command - always available)
 function CPL:debugCache(filterName)
