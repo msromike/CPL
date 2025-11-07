@@ -43,6 +43,7 @@ read_globals = {
     "time",
     "WorldFrame",
     "GetChannelName",
+    "date",
 }
 
 globals = {

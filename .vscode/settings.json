@@ -49,7 +49,8 @@
         "_G",
         "WorldFrame",
         "GetChannelName",
-        "SLASH_CPL1"
+        "SLASH_CPL1",
+        "date"
     ],
     "Lua.workspace.ignoreDir": [
         "archive/"

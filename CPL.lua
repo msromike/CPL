@@ -21,7 +21,10 @@ CPL.cacheExpiry = 7200
 -- Debug mode flag
 CPL.debugMode = true
 
--- WHO query queue (cache in memory)
+-- Enabled flag
+CPL.enabled = true
+
+-- WHO query queue (array of {name, attempts})
 CPL.WhoQueue = {}
 
 -- Channel configuration (future GUI will modify this)
@@ -40,7 +43,8 @@ end
 -- Command table for easy extension (one line to add new commands)
 CPL.commands = {
     debug = {func = "toggleDebug", desc = "Toggle debug mode on/off"},
-    cache = {func = "debugCache", desc = "Show cache contents"},
+    enable = {func = "toggleEnabled", desc = "Toggle addon on/off"},
+    cache = {func = "debugCache", desc = "Show cache contents (optional: /cpl cache <name> to filter)", args = "[name]", optional = true},
     queue = {func = "debugQueue", desc = "Show WHO queue contents"},
     help = {func = "showHelp", desc = "Show this help"}
 }
@@ -53,8 +57,8 @@ SlashCmdList["CPL"] = function(msg)
 
     local command = CPL.commands[cmd]
     if command then
-        -- Handle commands that require arguments
-        if command.args and not arg then
+        -- Handle commands that require arguments (but not optional ones)
+        if command.args and not command.optional and not arg then
             print("Usage: /cpl " .. cmd .. " " .. command.args)
         else
             -- Call the function
@@ -127,8 +131,11 @@ function CPL:updateTarget()
     self:addName(Name, UnitLevel("target"), "TARGET")
 end
 
--- MouseOver detection function
+-- Mouseover detection function
 function CPL:updateMouseOver()
+    if not self.enabled then
+        return
+    end
     if not UnitIsPlayer("mouseover") or not UnitIsFriend("player", "mouseover") then
         return
     end
@@ -160,6 +167,11 @@ end
 
 -- Chat message processing function
 local function OnChannelChat(self, event, msg, author, language, channelString, target, flags, unknown, channelNumber, channelName, ...)
+    -- Skip if addon disabled
+    if not CPL.enabled then
+        return false
+    end
+
     -- Check if this channel is enabled (most frequent check)
     if not (CPL.channelConfig[channelNumber] and CPL.channelConfig[channelNumber].enabled) then
         return false
@@ -173,14 +185,22 @@ local function OnChannelChat(self, event, msg, author, language, channelString, 
     local data = CPLDB.players[key]
 
     -- Early exit: Already queued (avoid duplicate work)
-    if CPL.WhoQueue[key] then
+    local alreadyQueued = false
+    for i, entry in ipairs(CPL.WhoQueue) do
+        if entry[1] == key then
+            alreadyQueued = true
+            break
+        end
+    end
+
+    if alreadyQueued then
         CPL:debug("CHAT - Channel " .. channelNumber .. " (" .. (channelName or "Unknown") .. "): " .. playerName)
         return false
     end
 
     -- Not cached at all? Queue immediately (2nd most common for new players)
     if not data then
-        CPL.WhoQueue[key] = true
+        table.insert(CPL.WhoQueue, {key, 0})
         CPL:debug("QUEUE: Added", playerName, "to WHO queue (new)")
         CPL:debug("CHAT - Channel " .. channelNumber .. " (" .. (channelName or "Unknown") .. "): " .. playerName)
         return false
@@ -195,7 +215,7 @@ local function OnChannelChat(self, event, msg, author, language, channelString, 
     -- Cache stale (older than expiry)? Re-queue for update
     local age = time() - data[2]
     if age > CPL.cacheExpiry then
-        CPL.WhoQueue[key] = true
+        table.insert(CPL.WhoQueue, {key, 0})
         CPL:debug("QUEUE: Added", playerName, "to WHO queue (stale, age=" .. age .. "s)")
     end
 
@@ -218,18 +238,20 @@ function CPL:processWhoResults()
     -- Process WHO results using modern API
     local numResults = C_FriendList.GetNumWhoResults()
 
-    if numResults == 0 then
-        -- No results = player offline/doesn't exist
-        -- Remove from queue so we don't get stuck
-        self.WhoQueue[targetName] = nil
-        self:debug("WHO: No results for", targetName, "- removed from queue")
-    else
+    if numResults > 0 then
         for i = 1, numResults do
             local info = C_FriendList.GetWhoInfo(i)
             if info and info.fullName and info.level then
                 if info.fullName:lower() == targetName:lower() then
-                    -- Cache the result (this also removes from queue via addName logic)
+                    -- Cache the result
                     self:addName(info.fullName, info.level, "WHO")
+                    -- Remove from queue on successful match
+                    for j, entry in ipairs(self.WhoQueue) do
+                        if entry[1] == targetName then
+                            table.remove(self.WhoQueue, j)
+                            break
+                        end
+                    end
                 end
             end
         end
@@ -264,12 +286,18 @@ ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", FilterWhoResults)
 
 -- Process WHO queue on hardware events (mouse clicks)
 function CPL:processQueue()
-    -- Get next player from queue
-    local nextPlayer = next(self.WhoQueue)
-    if not nextPlayer then
+    -- Skip if addon disabled
+    if not self.enabled then
+        return
+    end
+
+    -- Get first entry from queue (index 1)
+    if #self.WhoQueue == 0 then
         return -- Queue empty (most common case when no chat activity)
     end
 
+    local entry = self.WhoQueue[1]
+    local nextPlayer = entry[1]
     local data = CPLDB.players[nextPlayer]
 
     -- Not cached at all? Send WHO query
@@ -277,13 +305,20 @@ function CPL:processQueue()
         self.whoTarget = nextPlayer
         self.suppressWho = true
         self:debug("HARDWARE EVENT: Sending WHO query for", nextPlayer, "(new)")
-        C_FriendList.SendWho(nextPlayer)
+        C_FriendList.SendWho("n-\"" .. nextPlayer .. "\"")
+
+        -- Increment attempt counter and remove if exhausted
+        entry[2] = entry[2] + 1
+        if entry[2] >= 5 then
+            table.remove(self.WhoQueue, 1)
+            self:debug("QUEUE: Removed after 5 attempts", nextPlayer)
+        end
         return
     end
 
     -- Cached at level 60? Remove from queue (immutable, most common cached case)
     if data[1] == 60 then
-        self.WhoQueue[nextPlayer] = nil
+        table.remove(self.WhoQueue, 1)
         self:debug("QUEUE: Removed level 60 player", nextPlayer)
         return
     end
@@ -293,7 +328,7 @@ function CPL:processQueue()
 
     -- Cache fresh? Remove from queue
     if age <= CPL.cacheExpiry then
-        self.WhoQueue[nextPlayer] = nil
+        table.remove(self.WhoQueue, 1)
         self:debug("QUEUE: Removed fresh cached player", nextPlayer, "(age=" .. age .. "s)")
         return
     end
@@ -302,7 +337,14 @@ function CPL:processQueue()
     self.whoTarget = nextPlayer
     self.suppressWho = true
     self:debug("HARDWARE EVENT: Sending WHO query for", nextPlayer, "(update, age=" .. age .. "s)")
-    C_FriendList.SendWho(nextPlayer)
+    C_FriendList.SendWho("n-\"" .. nextPlayer .. "\"")
+
+    -- Increment attempt counter and remove if exhausted
+    entry[2] = entry[2] + 1
+    if entry[2] >= 5 then
+        table.remove(self.WhoQueue, 1)
+        self:debug("QUEUE: Removed after 5 attempts", nextPlayer)
+    end
 end
 
 -- Hook mouse clicks to process queue
@@ -356,13 +398,57 @@ function CPL:toggleDebug()
     print("CPL Debug mode:", self.debugMode and "ON" or "OFF")
 end
 
+-- Toggle addon on/off
+function CPL:toggleEnabled()
+    self.enabled = not self.enabled
+    print("CPL:", self.enabled and "ENABLED" or "DISABLED")
+end
+
 -- Show cache contents
-function CPL:debugCache()
+function CPL:debugCache(filterName)
     print("=== CPL CACHE DEBUG ===")
-    print("Players:")
+
+    -- Build sorted cache table
+    local cache = {}
+    local filter = filterName and filterName:lower()
+    local oldestEpoch, newestEpoch
+
     for name, data in pairs(CPLDB.players) do
-        print("  " .. name .. " = level " .. data[1] .. " [" .. data[2] .. "]")
+        if not filter or name:find(filter, 1, true) then
+            local epoch = data[2]
+            table.insert(cache, {
+                name = name,
+                level = data[1],
+                timestamp = date("%Y-%m-%d %H:%M:%S", epoch),
+                epoch = epoch
+            })
+
+            -- Track oldest and newest timestamps
+            if not oldestEpoch or epoch < oldestEpoch then oldestEpoch = epoch end
+            if not newestEpoch or epoch > newestEpoch then newestEpoch = epoch end
+        end
     end
+
+    -- Sort by name
+    table.sort(cache, function(a, b) return a.name < b.name end)
+
+    -- Print summary when no filter (no dump)
+    if not filter then
+        print("Total Entries: " .. #cache)
+        if oldestEpoch then
+            print("First Timestamp: " .. date("%Y-%m-%d %H:%M:%S", oldestEpoch))
+            print("Last Timestamp: " .. date("%Y-%m-%d %H:%M:%S", newestEpoch))
+        end
+        print("======================")
+        return
+    end
+
+    -- Print filtered results with separators
+    for _, entry in ipairs(cache) do
+        print(string.format("%-15s | Lvl %2d | TS: %s", entry.name, entry.level, entry.timestamp))
+    end
+
+    print("Showing " .. #cache .. " player(s) matching '" .. filterName .. "'")
     print("======================")
 end
 
@@ -370,11 +456,12 @@ end
 function CPL:debugQueue()
     print("=== CPL WHO QUEUE ===")
     local count = 0
-    for name, _ in pairs(self.WhoQueue) do
-        print("  " .. name)
+    for i, entry in ipairs(self.WhoQueue) do
+        local name, attempts = entry[1], entry[2]
+        print(string.format("  %d. %s (attempts: %d)", i, name, attempts))
         count = count + 1
     end
-    print("Total: " .. count .. " players")
+    print("Total: " .. count .. " player(s)")
     print("=====================")
 end
 
