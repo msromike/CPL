@@ -191,7 +191,8 @@ frame:SetScript("OnEvent", function(self, event, ...)
 
             f:Show()
 
-            CPL:debug("SYSTEM", "Database initialized")
+            CPL:debug("SYSTEM", "- Initializing")
+            CPL:debug("SYSTEM", "- Debug frame active - Toggle with /cpl debugframe")
             CPL:print("CPL: Loaded - Chat player level caching active")
 
             -- Display monitored channels if debug mode is on
@@ -221,6 +222,15 @@ frame:SetScript("OnEvent", function(self, event, ...)
         CPL:processWhoResults()
     end
 end)
+
+--------------------------------------------------
+-- Utility Functions
+--------------------------------------------------
+
+-- Convert seconds to fractional hours with 1 decimal place
+function CPL:formatAge(seconds)
+    return string.format("%.1fh", seconds / 3600)
+end
 
 --------------------------------------------------
 -- Player Detection Functions
@@ -274,7 +284,7 @@ function CPL:updateGuild()
     -- Throttle: Only scan once per 10 minutes
     local now = time()
     if (now - self.lastGuildScan) < 600 then
-        self:debug("GUILD", "Scan throttled (cooldown active)")
+        self:debug("GUILD", "- Requesting roster update - Throttled")
         return
     end
 
@@ -292,7 +302,7 @@ function CPL:updateGuild()
         end
     end
 
-    self:debug("GUILD", "Scanned", count, "members")
+    self:debug("GUILD", "- Updated roster -", count, "members")
 end
 
 --------------------------------------------------
@@ -328,15 +338,15 @@ local function OnChannelChat(self, event, msg, author, language, channelString, 
     end
 
     if alreadyQueued then
-        CPL:debug("CHAT", "Channel " .. channelNumber .. " (" .. (channelName or "Unknown") .. "): [" .. playerName .. "]")
+        CPL:debug("CHAT", "- Channel " .. channelNumber .. " (" .. (channelName or "Unknown") .. ") [" .. playerName .. "]")
         return false
     end
 
     -- Not cached at all? Queue immediately (2nd most common for new players)
     if not data then
         table.insert(CPL.WhoQueue, {key, 0})
-        CPL:debug("WHO", "Added [" .. playerName .. "] to queue (new)")
-        CPL:debug("CHAT", "Channel " .. channelNumber .. " (" .. (channelName or "Unknown") .. "): [" .. playerName .. "]")
+        CPL:debug("WHO", "- Added [" .. playerName .. "] to queue - New")
+        CPL:debug("CHAT", "- Channel " .. channelNumber .. " (" .. (channelName or "Unknown") .. ") [" .. playerName .. "]")
         return false
     end
 
@@ -344,10 +354,10 @@ local function OnChannelChat(self, event, msg, author, language, channelString, 
     local age = time() - data[2]
     if age > CPL.cacheExpiry then
         table.insert(CPL.WhoQueue, {key, 0})
-        CPL:debug("WHO", "Added [" .. playerName .. "] to queue (stale, age=" .. age .. "s)")
+        CPL:debug("WHO", "- Added [" .. playerName .. "] to queue - Stale " .. CPL:formatAge(age))
     end
 
-    CPL:debug("CHAT", "Channel " .. channelNumber .. " (" .. (channelName or "Unknown") .. "): [" .. playerName .. "]")
+    CPL:debug("CHAT", "- Channel " .. channelNumber .. " (" .. (channelName or "Unknown") .. ") [" .. playerName .. "]")
     return false -- Pass through unchanged
 end
 
@@ -469,7 +479,7 @@ function CPL:processQueue()
     -- Enforce 5-second cooldown between WHO queries
     local timeSinceLastWho = time() - self.lastWhoTime
     if timeSinceLastWho < 5 then
-        self:debug("WHO", "Click ignored, cooldown active", string.format("(%.1fs remaining)", 5 - timeSinceLastWho))
+        self:debug("WHO", "- Throttled API call - Next in " .. string.format("%.1fs", 5 - timeSinceLastWho))
         return
     end
 
@@ -486,15 +496,15 @@ function CPL:processQueue()
     if not data then
         self.whoTarget = nextPlayer
         self.suppressWho = true
-        self:debug("WHO", "Sending query for [" .. nextPlayer .. "] (new)")
+        self:debug("WHO", "- Sending query for [" .. nextPlayer .. "] - New")
         C_FriendList.SendWho("n-\"" .. nextPlayer .. "\"")
         self.lastWhoTime = time()
 
         -- Increment attempt counter and remove if exhausted
         entry[2] = entry[2] + 1
-        if entry[2] >= 5 then
+        if entry[2] >= 3 then
             table.remove(self.WhoQueue, 1)
-            self:debug("WHO", "Removed [" .. nextPlayer .. "] after 5 attempts")
+            self:debug("WHO", "- Removed [" .. nextPlayer .. "] from queue - Max attempts (3)")
         end
         return
     end
@@ -505,22 +515,22 @@ function CPL:processQueue()
     -- Cache fresh? Remove from queue
     if age <= CPL.cacheExpiry then
         table.remove(self.WhoQueue, 1)
-        self:debug("WHO", "Removed fresh cached [" .. nextPlayer .. "] (age=" .. age .. "s)")
+        self:debug("WHO", "- Removed [" .. nextPlayer .. "] from queue - Fresh " .. self:formatAge(age))
         return
     end
 
     -- Cache stale? Send WHO query for update
     self.whoTarget = nextPlayer
     self.suppressWho = true
-    self:debug("WHO", "Sending query for [" .. nextPlayer .. "] (update, age=" .. age .. "s)")
+    self:debug("WHO", "- Sending query for [" .. nextPlayer .. "] - Update " .. self:formatAge(age))
     C_FriendList.SendWho("n-\"" .. nextPlayer .. "\"")
     self.lastWhoTime = time()
 
     -- Increment attempt counter and remove if exhausted
     entry[2] = entry[2] + 1
-    if entry[2] >= 5 then
+    if entry[2] >= 3 then
         table.remove(self.WhoQueue, 1)
-        self:debug("WHO", "Removed [" .. nextPlayer .. "] after 5 attempts")
+        self:debug("WHO", "- Removed [" .. nextPlayer .. "] from queue - Max attempts (3)")
     end
 end
 
@@ -543,18 +553,30 @@ function CPL:addName(Name, Level, Source)
         return
     end
 
-    -- Store level with timestamp: {level, timestamp}
+    -- Optimization: Skip if level unchanged and cache still fresh
     local now = time()
+    if existing then
+        local cachedLevel, cachedTime = existing[1], existing[2]
+        if cachedLevel == Level and (now - cachedTime) < CPL.cacheExpiry then
+            return  -- Level unchanged and cache fresh, skip update
+        end
+    end
+
+    -- Store level with timestamp: {level, timestamp}
     CPLDB.players[key] = {Level, now}
 
-    -- Debug output with category detection
-    local category = "DETECTION"
+    -- Debug output with normalized format (only if cached)
     if Source == "GUILD" then
-        category = "GUILD"
+        -- Guild detections stay in GUILD category, no debug output here
     elseif Source == "WHO" then
-        category = "WHO"
+        self:debug("WHO", "- Received [" .. Name .. "] - Lvl " .. Level)
+    elseif Source == "TARGET" and existing then
+        self:debug("DETECT", "- Cached target [" .. Name .. "] - Lvl " .. Level)
+    elseif Source == "MOUSE" and existing then
+        self:debug("DETECT", "- Cached mouse [" .. Name .. "] - Lvl " .. Level)
+    elseif (Source == "PARTY" or Source == "RAID") and existing then
+        self:debug("DETECT", "- Cached " .. Source:lower() .. " [" .. Name .. "] - Lvl " .. Level)
     end
-    self:debug(category, Source .. ":", "[" .. Name .. "]", "-", Level, "- [" .. now .. "]")
 end
 
 -- Retrieval function - returns level only, ignores timestamp
@@ -572,7 +594,7 @@ end
 CPL.debugColors = {
     SYSTEM = {1, 1, 1},      -- White
     GUILD = {0, 1, 0},       -- Green
-    DETECTION = {0, 1, 1},   -- Cyan
+    DETECT = {0, 1, 1},      -- Cyan
     CHAT = {1, 1, 0},        -- Yellow
     WHO = {1, 0, 0}          -- Red
 }
@@ -582,7 +604,9 @@ function CPL:debug(category, ...)
     if self.debugMode then
         if self.debugFrame then
             local color = self.debugColors[category] or {1, 1, 1}  -- Default white
-            local msg = "[" .. category .. "] " .. table.concat({...}, " ")
+            -- Right-justify category name in 6-character brackets
+            local paddedCategory = string.format("%6s", category)
+            local msg = "[" .. paddedCategory .. "] " .. table.concat({...}, " ")
             self.debugFrame:AddMessage(msg, color[1], color[2], color[3])
         end
     end
@@ -614,6 +638,8 @@ function CPL:toggleDebugFrame()
             frame:Hide()
         else
             frame:Show()
+            -- Show toggle instructions when frame is raised
+            self:debug("SYSTEM", "- Debug frame active - Toggle with /cpl debugframe")
         end
     end
 end
@@ -681,14 +707,11 @@ end
 
 -- Show monitored channels
 function CPL:debugChannels()
-    self:debug("SYSTEM", "Monitoring channels:")
     for channelNum, config in pairs(self.channelConfig) do
         if config.enabled then
             local channelID, channelName = GetChannelName(channelNum)
             if channelID > 0 then
-                self:debug("SYSTEM", "  Channel " .. channelNum .. ": " .. channelName)
-            else
-                self:debug("SYSTEM", "  Channel " .. channelNum .. ": (not joined)")
+                self:debug("SYSTEM", "- Monitoring channel " .. channelNum .. " (" .. channelName .. ")")
             end
         end
     end
