@@ -36,6 +36,8 @@
         "IsInRaid",
         "GetNumGuildMembers",
         "GetGuildRosterInfo",
+        "IsInGuild",
+        "GuildRoster",
         "UnitIsFriend",
         "time",
         "SlashCmdList",
@@ -50,7 +52,8 @@
         "WorldFrame",
         "GetChannelName",
         "SLASH_CPL1",
-        "date"
+        "date",
+        "GetTime"
     ],
     "Lua.workspace.ignoreDir": [
         "archive/"

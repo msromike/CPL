@@ -27,6 +27,9 @@ CPL.enabled = true
 -- WHO query throttle timestamp
 CPL.lastWhoTime = 0
 
+-- Guild scan throttle timestamp
+CPL.lastGuildScan = 0
+
 -- WHO query queue (array of {name, attempts})
 CPL.WhoQueue = {}
 
@@ -90,6 +93,7 @@ local frame = CreateFrame("Frame")
 frame:RegisterEvent("ADDON_LOADED")
 frame:RegisterEvent("PLAYER_TARGET_CHANGED")
 frame:RegisterEvent("UPDATE_MOUSEOVER_UNIT")
+frame:RegisterEvent("GUILD_ROSTER_UPDATE")
 frame:RegisterEvent("GROUP_ROSTER_UPDATE")
 frame:RegisterEvent("CHAT_MSG_SYSTEM")
 frame:SetScript("OnEvent", function(self, event, ...)
@@ -104,11 +108,18 @@ frame:SetScript("OnEvent", function(self, event, ...)
             if CPL.debugMode then
                 CPL:debugChannels()
             end
+
+            -- Request guild roster if in guild
+            if IsInGuild() then
+                GuildRoster()
+            end
         end
     elseif event == "PLAYER_TARGET_CHANGED" then
         CPL:updateTarget()
     elseif event == "UPDATE_MOUSEOVER_UNIT" then
         CPL:updateMouseOver()
+    elseif event == "GUILD_ROSTER_UPDATE" then
+        CPL:updateGuild()
     elseif event == "GROUP_ROSTER_UPDATE" then
         if IsInRaid() then
             CPL:updateRaid()
@@ -162,6 +173,36 @@ function CPL:updateRaid()
         local Name = UnitName("raid" .. i)
         self:addName(Name, Level, "RAID")
     end
+end
+
+-- Guild roster scanning
+function CPL:updateGuild()
+    if not IsInGuild() then
+        return
+    end
+
+    -- Throttle: Only scan once per minute
+    local now = time()
+    if (now - self.lastGuildScan) < 60 then
+        self:debug("GUILD: Scan throttled (cooldown active)")
+        return
+    end
+
+    self.lastGuildScan = now
+    local count = 0
+
+    for i = 1, GetNumGuildMembers() do
+        local name, _, _, level = GetGuildRosterInfo(i)
+
+        if name and level and level > 0 then
+            -- Remove server suffix if present (cross-realm)
+            local cleanName = name:match("([^%-]+)")
+            self:addName(cleanName, level, "GUILD")
+            count = count + 1
+        end
+    end
+
+    self:debug("GUILD: Scanned", count, "members")
 end
 
 --------------------------------------------------
