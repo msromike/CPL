@@ -11,6 +11,7 @@
 ### Implementation
 
 1. **Capture original print function at addon load time** (before any hooks):
+
    ```lua
    -- Store original print function before Chattynator (or other addons) hook it
    -- This prevents debug spam from being duplicated across multiple Chattynator windows
@@ -18,6 +19,7 @@
    ```
 
 2. **Use originalPrint in debug function** to bypass Chattynator's hook:
+
    ```lua
    function CPL:debug(...)
        if self.debugMode then
@@ -33,11 +35,13 @@
    ```
 
 3. **Proper string concatenation** for all print calls (to ensure single-line messages):
+
    ```lua
    print("CPL Debug mode: " .. (self.debugMode and "ON" or "OFF"))
    ```
 
 **Result:**
+
 - ✅ Debug messages appear only ONCE in chat
 - ✅ Debug messages still visible in both Chattynator AND standard chat frame
 - ✅ No interference with Chattynator's message processing
@@ -52,9 +56,11 @@
    - NOT the final displayed text `G. Name: message`
 
 2. **Player hyperlink pattern from ClassColors.lua:**
+
    ```lua
    local playerPattern = "(|Hplayer:[^|]+|h%[?)([^|%[%]][^c%[%]][^%[%]]-)(%]?|h)"
    ```
+
    - Captures: `(hyperlink_start)` `(player_name)` `(hyperlink_end)`
    - Replace middle part: `%1[10:PlayerName]%3`
 

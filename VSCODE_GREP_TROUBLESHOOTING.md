@@ -43,20 +43,29 @@ cat .gitignore
 
 ### ✅ 3. Check `Lua.workspace.ignoreDir` settings
 
-**Problem:** Lua language server ignore settings can block searches
+**Problem:** Lua language server ignore settings **WILL BLOCK AI ASSISTANT GREP/SEARCH**
 
 **Check:** `.vscode/settings.json`
 ```json
 "Lua.workspace.ignoreDir": [
     "archive/",
-    "Prat-3.0/",  // ← This blocks grep
+    "Prat-3.0/",  // ← This blocks AI grep_search tool entirely
     "Ace3/"
 ]
 ```
 
-**Solution:** Remove directories you need to search from this list
+**IMPORTANT:** Even though this setting is meant for Lua linting/intellisense, it also prevents AI assistants (Copilot, Claude, etc.) from using grep_search in these directories. This is a VS Code limitation.
 
-**Note:** This is separate from gitignore. Lua ignores are for linting/intellisense.
+**Solution:**
+- **Option 1:** Remove directories from `Lua.workspace.ignoreDir` if you need AI to search them
+- **Option 2:** Accept that you'll see linter errors for those directories, but AI can search them
+- **Option 3:** Only add directories you truly never need to search (like `archive/`)
+
+**Trade-off:**
+- If you exclude: No linter errors in those folders, BUT AI cannot search them
+- If you include: AI can search them, BUT you see all their linter errors
+
+**Recommendation:** Only use `Lua.workspace.ignoreDir` for directories you absolutely never need AI to search (archives, build outputs, etc.). For reference code like Prat/Chattynator, accept the linter errors so AI can still help you search and understand that code.
 
 ---
 

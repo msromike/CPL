@@ -44,6 +44,13 @@ read_globals = {
     "WorldFrame",
     "GetChannelName",
     "date",
+    "DEFAULT_CHAT_FRAME",
+    "GameFontNormal",
+    "GameFontNormalSmall",
+    "UIParent",
+    "GetTime",
+    "IsInGuild",
+    "GuildRoster",
 }
 
 globals = {

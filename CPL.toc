@@ -6,3 +6,4 @@
 ## SavedVariables: CPLDB
 
 CPL.lua
+Debug.lua
