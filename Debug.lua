@@ -107,6 +107,15 @@ function CPL:debugChannels()
 end
 
 --------------------------------------------------
+-- Register Debug Commands
+--------------------------------------------------
+
+-- Add debug commands to the command table
+CPL.commands.debug = {func = "toggleDebug", desc = "Toggle debug mode on/off"}
+CPL.commands.queue = {func = "debugQueue", desc = "Show WHO queue contents"}
+CPL.commands.debugframe = {func = "toggleDebugFrame", desc = "Toggle debug frame visibility"}
+
+--------------------------------------------------
 -- Helper Functions
 --------------------------------------------------
 

@@ -47,13 +47,11 @@ end
 --------------------------------------------------
 
 -- Command table for easy extension (one line to add new commands)
+-- Core commands only - Debug.lua adds its own commands when loaded
 CPL.commands = {
     enable = {func = "toggleEnabled", desc = "Toggle addon on/off"},
-    cache = {func = "debugCache", desc = "Show cache contents (optional: /cpl cache <name> to filter)", args = "[name]", optional = true},
+    cache = {func = "debugCache", desc = "Show cache contents", args = "[name]", optional = true},
     channels = {func = "showChannels", desc = "Show monitored channels"},
-    debug = {func = "toggleDebug", desc = "Toggle debug mode on/off"},
-    queue = {func = "debugQueue", desc = "Show WHO queue contents"},
-    debugframe = {func = "toggleDebugFrame", desc = "Toggle debug frame visibility"},
     help = {func = "showHelp", desc = "Show this help"}
 }
 
