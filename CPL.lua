@@ -119,10 +119,27 @@ frame:SetScript("OnEvent", function(self, event, ...)
             bg:SetAllPoints()
             bg:SetColorTexture(0, 0, 0, 0.8)
 
-            -- Create clear button in top right corner
+            -- Create copy button in top right corner
+            local copyBtn = CreateFrame("Button", nil, f)
+            copyBtn:SetSize(60, 20)
+            copyBtn:SetPoint("TOPRIGHT", f, "TOPRIGHT", -5, -5)
+            copyBtn:SetNormalFontObject(GameFontNormalSmall)
+            copyBtn:SetText("Copy")
+
+            -- Button background
+            local copyBtnBg = copyBtn:CreateTexture(nil, "BACKGROUND")
+            copyBtnBg:SetAllPoints()
+            copyBtnBg:SetColorTexture(0.2, 0.2, 0.2, 0.8)
+
+            -- Button hover
+            local copyBtnHighlight = copyBtn:CreateTexture(nil, "HIGHLIGHT")
+            copyBtnHighlight:SetAllPoints()
+            copyBtnHighlight:SetColorTexture(0.4, 0.4, 0.4, 0.5)
+
+            -- Create clear button next to copy button
             local clearBtn = CreateFrame("Button", nil, f)
             clearBtn:SetSize(60, 20)
-            clearBtn:SetPoint("TOPRIGHT", f, "TOPRIGHT", -5, -5)
+            clearBtn:SetPoint("RIGHT", copyBtn, "LEFT", -5, 0)
             clearBtn:SetNormalFontObject(GameFontNormalSmall)
             clearBtn:SetText("Clear")
 
@@ -184,9 +201,85 @@ frame:SetScript("OnEvent", function(self, event, ...)
             -- Store reference globally for printing
             CPL.debugFrame = scroll
 
+            -- Store messages for copy functionality
+            CPL.debugMessages = {}
+
+            -- Create a hidden EditBox for copying text
+            local copyBox = CreateFrame("EditBox", nil, f)
+            copyBox:SetMultiLine(true)
+            copyBox:SetMaxLetters(0)
+            copyBox:SetFontObject(GameFontNormalSmall)
+            copyBox:SetAutoFocus(false)
+            copyBox:SetPoint("TOPLEFT", 10, -30)
+            copyBox:SetPoint("BOTTOMRIGHT", -10, 10)
+            copyBox:Hide()
+
+            -- Add ESC handler to exit copy mode
+            copyBox:SetScript("OnEscapePressed", function(self)
+                copyBtn:Click()  -- Trigger copy button to exit copy mode
+            end)
+
+            -- Create a background for the EditBox
+            local copyBoxBg = copyBox:CreateTexture(nil, "BACKGROUND")
+            copyBoxBg:SetAllPoints()
+            copyBoxBg:SetColorTexture(0, 0, 0, 0.9)
+
+            -- Create a scroll frame for the EditBox
+            local copyScrollFrame = CreateFrame("ScrollFrame", nil, f, "UIPanelScrollFrameTemplate")
+            copyScrollFrame:SetPoint("TOPLEFT", 10, -30)
+            copyScrollFrame:SetPoint("BOTTOMRIGHT", -30, 10)
+            copyScrollFrame:SetScrollChild(copyBox)
+            copyScrollFrame:Hide()
+
+            -- Store reference to toggle between scroll and copyBox
+            CPL.copyMode = false
+            CPL.copyBox = copyBox
+            CPL.copyScrollFrame = copyScrollFrame
+
+            -- Copy button functionality
+            copyBtn:SetScript("OnClick", function()
+                if not CPL.copyMode then
+                    -- Enter copy mode
+                    CPL.copyMode = true
+                    scroll:Hide()
+                    copyScrollFrame:Show()
+                    copyBox:Show()
+
+                    -- Populate the EditBox with all messages
+                    local text = table.concat(CPL.debugMessages, "\n")
+                    copyBox:SetText(text)
+                    copyBox:HighlightText()
+                    copyBox:SetFocus()
+
+                    copyBtn:SetText("Done")
+                else
+                    -- Exit copy mode
+                    CPL.copyMode = false
+                    copyBox:Hide()
+                    copyScrollFrame:Hide()
+                    scroll:Show()
+                    copyBox:ClearFocus()
+
+                    copyBtn:SetText("Copy")
+                end
+            end)
+
             -- Clear button functionality
             clearBtn:SetScript("OnClick", function()
                 scroll:Clear()
+                CPL.debugMessages = {}
+            end)
+
+            -- Add keyboard shortcut support (Ctrl+C to copy)
+            f:EnableKeyboard(false)  -- Only enable when frame has focus
+            f:SetPropagateKeyboardInput(true)
+
+            -- Add a way to activate copy mode with Ctrl+C when hovering over frame
+            f:SetScript("OnKeyDown", function(self, key)
+                if key == "C" and IsControlKeyDown() then
+                    copyBtn:Click()  -- Trigger the copy button
+                    return
+                end
             end)
 
             f:Show()
@@ -608,6 +701,17 @@ function CPL:debug(category, ...)
             local paddedCategory = string.format("%6s", category)
             local msg = "[" .. paddedCategory .. "] " .. table.concat({...}, " ")
             self.debugFrame:AddMessage(msg, color[1], color[2], color[3])
+
+            -- Store message for copy functionality (without color codes)
+            if not self.debugMessages then
+                self.debugMessages = {}
+            end
+            table.insert(self.debugMessages, msg)
+
+            -- Keep only last 2000 messages to prevent memory issues
+            if #self.debugMessages > 2000 then
+                table.remove(self.debugMessages, 1)
+            end
         end
     end
 end
