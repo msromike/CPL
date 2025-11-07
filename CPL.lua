@@ -396,6 +396,15 @@ ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", FilterWhoResults)
 -- WHO Queue Processing
 --------------------------------------------------
 
+-- Helper: Increment attempt counter and remove from queue if max attempts reached
+local function incrementAttemptOrRemove(entry, index, playerName)
+    entry[2] = entry[2] + 1
+    if entry[2] >= MAX_WHO_ATTEMPTS then
+        table.remove(CPL.WhoQueue, index)
+        CPL:debug("WHO", "- Removed [" .. playerName .. "] from queue - Max attempts (" .. MAX_WHO_ATTEMPTS .. ")")
+    end
+end
+
 -- Process WHO queue on hardware events (mouse clicks)
 function CPL:processQueue()
     -- Skip if addon disabled
@@ -427,12 +436,7 @@ function CPL:processQueue()
         C_FriendList.SendWho("n-\"" .. nextPlayer .. "\"")
         self.lastWhoTime = time()
 
-        -- Increment attempt counter and remove if exhausted
-        entry[2] = entry[2] + 1
-        if entry[2] >= MAX_WHO_ATTEMPTS then
-            table.remove(self.WhoQueue, 1)
-            self:debug("WHO", "- Removed [" .. nextPlayer .. "] from queue - Max attempts (" .. MAX_WHO_ATTEMPTS .. ")")
-        end
+        incrementAttemptOrRemove(entry, 1, nextPlayer)
         return
     end
 
@@ -453,12 +457,7 @@ function CPL:processQueue()
     C_FriendList.SendWho("n-\"" .. nextPlayer .. "\"")
     self.lastWhoTime = time()
 
-    -- Increment attempt counter and remove if exhausted
-    entry[2] = entry[2] + 1
-    if entry[2] >= MAX_WHO_ATTEMPTS then
-        table.remove(self.WhoQueue, 1)
-        self:debug("WHO", "- Removed [" .. nextPlayer .. "] from queue - Max attempts (" .. MAX_WHO_ATTEMPTS .. ")")
-    end
+    incrementAttemptOrRemove(entry, 1, nextPlayer)
 end
 
 -- Hook mouse clicks to process queue
