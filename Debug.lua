@@ -1,6 +1,23 @@
--- CPL Debug Module
--- Provides visual debug frame with message scrolling and copy functionality
--- To disable: Comment out "Debug.lua" in CPL.toc
+--[[
+CPL Debug Module - Optional Debugging Tools
+
+OVERVIEW:
+    Provides comprehensive debugging functionality for CPL addon including:
+
+ARCHITECTURE:
+    - Dynamically extends CPL core using stub override pattern
+    - Core functions in CPL.lua are stubs (no-ops) when this module is disabled
+    - Registers debug commands dynamically to CPL.commands table
+
+COMMANDS ADDED:
+    /cpl debug       - Toggle debug mode on/off
+    /cpl queue       - Display WHO query queue contents
+    /cpl debugframe  - Show/hide debug frame window
+
+HOW TO DISABLE:
+    Comment out "Debug.lua" in CPL.toc and restart client
+    - Core addon continues to function normally
+--]]
 
 --------------------------------------------------
 -- Constants

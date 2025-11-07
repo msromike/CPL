@@ -2,11 +2,16 @@
 -- Inspired by Prat-3.0's player level caching approach
 -- Original Prat-3.0: Copyright (C) 2006-2018 Prat Development Team (GPL v2)
 --
--- Slash Commands:
---   /cpl debug  - Toggle debug output (default ON)
---   /cpl cache  - Show cached player levels
---   /cpl queue  - Show WHO query queue
---   /cpl help   - List all commands
+-- Core Commands:
+--   /cpl enable    - Toggle addon on/off
+--   /cpl cache     - Show cached player levels
+--   /cpl channels  - Show monitored channels
+--   /cpl help      - List all commands
+--
+-- Debug Commands (requires Debug.lua):
+--   /cpl debug      - Toggle debug output
+--   /cpl queue      - Show WHO query queue
+--   /cpl debugframe - Toggle debug frame
 
 --------------------------------------------------
 -- Addon Namespace & Configuration
@@ -18,10 +23,10 @@ CPL = {}
 -- Player scan cache expiry time in seconds (8 hours)
 CPL.cacheExpiry = 28800
 
--- Debug mode flag
+-- Debug mode flag - controlled by /cpl debug command (requires Debug.lua)
 CPL.debugMode = true
 
--- Enabled flag
+-- Enabled flag - controlled by /cpl enable command
 CPL.enabled = true
 
 -- WHO query throttle timestamp
@@ -105,10 +110,8 @@ frame:SetScript("OnEvent", function(self, event, ...)
             CPL:debug("SYSTEM", "- Initializing")
             CPL:print("CPL: Loaded - Chat player level caching active")
 
-            -- Display monitored channels if debug mode is on
-            if CPL.debugMode then
-                CPL:debugChannels()
-            end
+            -- Display monitored channels on startup (Debug.lua provides the implementation)
+            CPL:debugChannels()
 
             -- Request guild roster if in guild
             if IsInGuild() then
