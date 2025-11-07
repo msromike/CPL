@@ -54,13 +54,7 @@ local function EchoTrade(data)
             return header .. colorCode .. levelPrefix .. displayName .. "|r" .. closer
         end)
 
-        -- Debug output
-        local escapedOriginal = data.text:gsub("|", "||")
-        local escapedModified = modifiedText:gsub("|", "||")
-        CPL:debug("CHAT", string.format("TRADE ORIGINAL: %s", escapedOriginal))
-        CPL:debug("CHAT", string.format("TRADE MODIFIED: %s", escapedModified))
-
-        -- Return modified text to display in chat
+        -- Apply modified text to display in chat
         data.text = modifiedText
     end
 end
