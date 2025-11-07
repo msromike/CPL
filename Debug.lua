@@ -59,11 +59,8 @@ end
 -- Debug Commands
 --------------------------------------------------
 
-local CACHE_HEADER = "=== CPL CACHE DEBUG ==="
-local CACHE_FOOTER = "======================"
 local QUEUE_HEADER = "=== CPL WHO QUEUE ==="
 local QUEUE_FOOTER = "====================="
-local CACHE_FORMAT = "%-15s | Lvl %2d | TS: %s"
 local QUEUE_FORMAT = "  %d. %s (attempts: %d)"
 
 -- Toggle debug frame visibility
@@ -77,52 +74,6 @@ function CPL:toggleDebugFrame()
         frame:Show()
         self:debug("SYSTEM", "- Debug frame active - Toggle with /cpl debugframe")
     end
-end
-
--- Display cache contents with optional name filter
-function CPL:debugCache(filterName)
-    self:print(CACHE_HEADER)
-
-    local cache = {}
-    local filter = filterName and filterName:lower()
-    local oldestEpoch, newestEpoch
-
-    -- Build cache table
-    for name, data in pairs(CPLDB.players) do
-        if not filter or name:find(filter, 1, true) then
-            local epoch = data[2]
-            table.insert(cache, {
-                name = name,
-                level = data[1],
-                timestamp = date("%Y-%m-%d %H:%M:%S", epoch),
-                epoch = epoch
-            })
-
-            oldestEpoch = (not oldestEpoch or epoch < oldestEpoch) and epoch or oldestEpoch
-            newestEpoch = (not newestEpoch or epoch > newestEpoch) and epoch or newestEpoch
-        end
-    end
-
-    table.sort(cache, function(a, b) return a.name < b.name end)
-
-    -- Summary view (no filter)
-    if not filter then
-        self:print("Total Entries: " .. #cache)
-        if oldestEpoch then
-            self:print("First Timestamp: " .. date("%Y-%m-%d %H:%M:%S", oldestEpoch))
-            self:print("Last Timestamp: " .. date("%Y-%m-%d %H:%M:%S", newestEpoch))
-        end
-        self:print(CACHE_FOOTER)
-        return
-    end
-
-    -- Filtered detail view
-    for _, entry in ipairs(cache) do
-        self:print(string.format(CACHE_FORMAT, entry.name, entry.level, entry.timestamp))
-    end
-
-    self:print("Showing " .. #cache .. " player(s) matching '" .. filterName .. "'")
-    self:print(CACHE_FOOTER)
 end
 
 -- Display WHO query queue

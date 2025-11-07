@@ -523,11 +523,55 @@ function CPL:toggleEnabled()
     self:print("CPL:", self.enabled and "ENABLED" or "DISABLED")
 end
 
--- Toggle debug frame visibility
 -- Debug stubs - overridden by Debug.lua if loaded
 function CPL:toggleDebugFrame() end
-function CPL:debugCache(filterName) end
 function CPL:debugQueue() end
+
+-- Show cache contents (core command - always available)
+function CPL:debugCache(filterName)
+    self:print("=== CPL CACHE ===")
+
+    local cache = {}
+    local filter = filterName and filterName:lower()
+    local oldestEpoch, newestEpoch
+
+    -- Build cache table
+    for name, data in pairs(CPLDB.players) do
+        if not filter or name:find(filter, 1, true) then
+            local epoch = data[2]
+            table.insert(cache, {
+                name = name,
+                level = data[1],
+                timestamp = date("%Y-%m-%d %H:%M:%S", epoch),
+                epoch = epoch
+            })
+
+            oldestEpoch = (not oldestEpoch or epoch < oldestEpoch) and epoch or oldestEpoch
+            newestEpoch = (not newestEpoch or epoch > newestEpoch) and epoch or newestEpoch
+        end
+    end
+
+    table.sort(cache, function(a, b) return a.name < b.name end)
+
+    -- Summary view (no filter)
+    if not filter then
+        self:print("Total Entries: " .. #cache)
+        if oldestEpoch then
+            self:print("First Timestamp: " .. date("%Y-%m-%d %H:%M:%S", oldestEpoch))
+            self:print("Last Timestamp: " .. date("%Y-%m-%d %H:%M:%S", newestEpoch))
+        end
+        self:print("=================")
+        return
+    end
+
+    -- Filtered detail view
+    for _, entry in ipairs(cache) do
+        self:print(string.format("%-15s | Lvl %2d | TS: %s", entry.name, entry.level, entry.timestamp))
+    end
+
+    self:print("Showing " .. #cache .. " player(s) matching '" .. filterName .. "'")
+    self:print("=================")
+end
 
 -- Show monitored channels (core command - always available)
 function CPL:showChannels()
