@@ -63,6 +63,11 @@ CPL.lastWhoTime = 0               -- WHO query throttle timestamp
 CPL.lastGuildScan = 0             -- Guild scan throttle timestamp
 CPL.WhoQueue = {}                 -- WHO query queue: {name, attempts}
 
+-- Duplicate suppression state (event-driven, no timers)
+local lastChatPlayer = nil        -- Last player processed in chat
+local lastMouseoverPlayer = nil   -- Last player processed on mouseover
+local lastTargetPlayer = nil      -- Last player processed on target
+
 -- Channel monitor configuration
 CPL.channelConfig = {}
 
@@ -246,6 +251,17 @@ function CPL:updateTarget()
         return
     end
     local Name = UnitName("target")
+    local key = Name and Name:lower()
+
+    -- Event-driven duplicate suppression: Drop if same player as last target
+    -- This handles multiple PLAYER_TARGET_CHANGED events for same target
+    if key == lastTargetPlayer then
+        return  -- Same player, skip processing
+    end
+
+    -- New player detected, update state and continue
+    lastTargetPlayer = key
+
     self:addName(Name, UnitLevel("target"), "TARGET")
 end
 
@@ -255,6 +271,17 @@ function CPL:updateMouseOver()
         return
     end
     local Name = UnitName("mouseover")
+    local key = Name and Name:lower()
+
+    -- Event-driven duplicate suppression: Drop if same player as last mouseover
+    -- This handles rapid fire UPDATE_MOUSEOVER_UNIT events
+    if key == lastMouseoverPlayer then
+        return  -- Same player, skip processing
+    end
+
+    -- New player detected, update state and continue
+    lastMouseoverPlayer = key
+
     self:addName(Name, UnitLevel("mouseover"), "MOUSE")
 end
 
@@ -320,6 +347,15 @@ local function OnChannelChat(self, event, msg, author, language, channelString, 
     local playerName = strsplit("-", author, 2)
     local key = playerName:lower()
 
+    -- Event-driven duplicate suppression: Drop if same player as last chat message
+    -- This handles rapid spam from automated channels (death alerts, etc.)
+    if key == lastChatPlayer then
+        return false  -- Same player, skip processing silently
+    end
+
+    -- New player detected, update state and continue processing
+    lastChatPlayer = key
+
     -- Check cache status
     local data = CPLDB.players[key]
 
@@ -339,21 +375,24 @@ local function OnChannelChat(self, event, msg, author, language, channelString, 
 
     -- Not cached at all? Queue immediately (2nd most common for new players)
     if not data then
-        table.insert(CPL.WhoQueue, {key, 0})
-        CPL:debug("WHO", "- Added [" .. playerName .. "] to queue - New")
         CPL:debug("CHAT", "- Channel " .. channelNumber .. " (" .. (channelName or "Unknown") .. ") [" .. playerName .. "]")
+        CPL:debug("WHO", "- Added [" .. playerName .. "] to queue - New")
+        table.insert(CPL.WhoQueue, {key, 0})
         return false
     end
 
     -- Cache stale (older than expiry)? Re-queue for update
     local age = time() - data[2]
     if age > CPL.cacheExpiry then
-        table.insert(CPL.WhoQueue, {key, 0})
+        CPL:debug("CHAT", "- Channel " .. channelNumber .. " (" .. (channelName or "Unknown") .. ") [" .. playerName .. "]")
         CPL:debug("WHO", "- Added [" .. playerName .. "] to queue - Stale " .. CPL:formatAge(age))
+        table.insert(CPL.WhoQueue, {key, 0})
+        return false
     end
 
+    -- Cache is fresh, just log and pass through
     CPL:debug("CHAT", "- Channel " .. channelNumber .. " (" .. (channelName or "Unknown") .. ") [" .. playerName .. "]")
-    return false -- Pass through unchanged
+    return false
 end
 
 -- Register chat message filter for channel monitoring
