@@ -264,7 +264,7 @@ local function OnChannelChat(self, event, msg, author, language, channelString, 
     end
 
     if alreadyQueued then
-        CPL:debug("CHAT", "- Channel " .. channelNumber .. " (" .. (channelName or "Unknown") .. ") [" .. playerName .. "]")
+        -- CPL:debug("CHAT", "- Channel " .. channelNumber .. " (" .. (channelName or "Unknown") .. ") [" .. playerName .. "]")
         return false
     end
 
@@ -272,7 +272,7 @@ local function OnChannelChat(self, event, msg, author, language, channelString, 
     if not data then
         table.insert(CPL.WhoQueue, {key, 0})
         CPL:debug("WHO", "- Added [" .. playerName .. "] to queue - New")
-        CPL:debug("CHAT", "- Channel " .. channelNumber .. " (" .. (channelName or "Unknown") .. ") [" .. playerName .. "]")
+        -- CPL:debug("CHAT", "- Channel " .. channelNumber .. " (" .. (channelName or "Unknown") .. ") [" .. playerName .. "]")
         return false
     end
 
@@ -283,7 +283,7 @@ local function OnChannelChat(self, event, msg, author, language, channelString, 
         CPL:debug("WHO", "- Added [" .. playerName .. "] to queue - Stale " .. CPL:formatAge(age))
     end
 
-    CPL:debug("CHAT", "- Channel " .. channelNumber .. " (" .. (channelName or "Unknown") .. ") [" .. playerName .. "]")
+    -- CPL:debug("CHAT", "- Channel " .. channelNumber .. " (" .. (channelName or "Unknown") .. ") [" .. playerName .. "]")
     return false -- Pass through unchanged
 end
 

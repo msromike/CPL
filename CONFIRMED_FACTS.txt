@@ -1,0 +1,18 @@
+CONFIRMED FACTS ONLY:
+
+1. Chattynator.API.AddModifier() successfully registers our function
+2. Our modifier IS being called on every chat message
+3. The data object has data.text and data.typeInfo.player.name fields
+4. data.typeInfo.player.name contains player name with realm (e.g., "Borkthebrave-Doomhowl")
+5. data.text DOES contain hyperlink codes - byte dump proves it
+   Example bytes: |Hplayer:Borkthebrave-Doomhowl:1011:CHANNEL:3|h
+   When printed as string, debug frame RENDERS the hyperlinks so they appear as plain text
+6. CPL level cache works and returns levels for players
+7. Our pattern matching has not successfully modified any text yet
+
+EUREKA DISCOVERY:
+The text appearing as "T. Borkthebrave: [..] message" is the RENDERED output.
+The ACTUAL data.text contains: "|Hchannel:...|hT.|h |Hplayer:Borkthebrave-Doomhowl:...|h|cffc79..."
+This is why our patterns failed - we were looking at rendered output but matching against raw hyperlink codes.
+
+Everything else has been assumption.

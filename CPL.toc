@@ -4,6 +4,8 @@
 ## Author: msromike
 ## Version: 1.0
 ## SavedVariables: CPLDB
+## OptionalDeps: Chattynator
 
 CPL.lua
 Debug.lua
+ChattynatorIntegration.lua

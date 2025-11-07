@@ -1,0 +1,56 @@
+EUREKA DATA NEEDED TO SOLVE THE PROBLEM:
+=========================================
+
+QUESTION: Why aren't our patterns matching the text?
+
+DATA NEEDED:
+------------
+
+1. EXACT text string for ONE real message - character by character
+   - What we log: "Hcbankxone yells: LF ENCHANTER"
+   - What we need: The ACTUAL string with all invisible characters revealed
+   - How: string.gsub(data.text, "(.)", function(c) return string.byte(c) .. "," end)
+   - This shows: "72,99,98,97,110,107,120,111,110,101,32,121,101,108,108,115,58,32..."
+   - Reveals: hidden color codes, zero-width chars, etc.
+
+2. PATTERN TEST on the exact same string
+   - Test our pattern against the EXACT string in Lua
+   - What: nameOnly value, escapedName value, does pattern match YES/NO
+   - How: Direct pattern test with debug output showing why it fails
+
+3. SUCCESSFUL GSUB test with simple pattern
+   - Prove gsub works at all on data.text
+   - Test: data.text:gsub("^(.)", "X%1") - replace first char with X+char
+   - If this fails, data.text might be immutable/protected
+
+CAN WE RETRIEVE IT:
+-------------------
+
+YES - Add to modifier (lines 126-135):
+
+if modifierCallCount == 2 then  -- Just do one real message
+    -- Byte dump
+    local bytes = ""
+    for i = 1, math.min(50, #data.text) do
+        bytes = bytes .. string.byte(data.text, i) .. ","
+    end
+    CPL:debug("CHAT", "- BYTE DUMP:", bytes)
+
+    -- Pattern test
+    local escapedName = nameOnly:gsub("([%%%^%$%(%)%.%[%]%*%+%-%?])", "%%%1")
+    local pattern = "^(" .. escapedName .. ")(%s)"
+    local matched = data.text:match(pattern)
+    CPL:debug("CHAT", "- PATTERN TEST: nameOnly=[" .. nameOnly .. "] escaped=[" .. escapedName .. "]")
+    CPL:debug("CHAT", "- PATTERN: [" .. pattern .. "] MATCH:", tostring(matched))
+
+    -- Simple gsub test
+    local testResult = data.text:gsub("^(.)", "X%1")
+    CPL:debug("CHAT", "- GSUB TEST: Original=[" .. data.text:sub(1,20) .. "] Modified=[" .. testResult:sub(1,20) .. "]")
+end
+
+EXPECTED OUTCOME:
+-----------------
+One of three things:
+A) Byte dump reveals hidden characters breaking our pattern
+B) Pattern test shows our pattern is malformed
+C) GSUB test fails = data.text is immutable and we need different approach

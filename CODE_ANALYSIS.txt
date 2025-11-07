@@ -1,0 +1,45 @@
+CODE THAT ESTABLISHED CONFIRMED FACTS:
+==========================================
+
+Lines 1-52: Addon loading detection
+- Result: Confirms both addons load and integration starts
+
+Lines 88-97: Basic modifier call detection
+- "Modifier called (#X) - Has typeInfo: true Has player: true"
+- Result: CONFIRMS fact #2 - modifier IS being called
+
+Lines 104-125: Data structure dump (first 3 calls)
+- Dumps all fields in data object
+- Result: CONFIRMS facts #3, #4, #5 - data.text and data.typeInfo.player.name exist and contain expected values
+
+Lines 130-135: Level lookup
+- local level = CPL:getLevel(nameOnly)
+- Result: CONFIRMS fact #6 - CPL cache works (we see WHO queries completing)
+
+Lines 180-185: Test and debug output
+- "No match for [PlayerName] - Full text: ..."
+- Result: CONFIRMS fact #7 - patterns have not successfully matched
+
+
+FAILED DEBUG BLOAT:
+===================
+
+Lines 53-77: Messages frame hunting (lines 53-77)
+- Searches for Chattynator internal frames
+- NEVER USED - API call works without this
+- REMOVE
+
+Lines 104-125: Full data dump on every reload
+- Runs on first 3 modifier calls
+- Already got the info we need
+- KEEP for now until we solve the problem, THEN REMOVE
+
+Lines 137-174: Pattern matching attempts
+- Tried hyperlink patterns, plain text patterns
+- None have worked yet
+- CURRENT PROBLEM - needs fixing, not removal
+
+Lines 185-220: Test data and verification
+- Dummy test with fake player
+- Not testing real-world scenario
+- QUESTIONABLE VALUE - consider removing
