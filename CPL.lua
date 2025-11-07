@@ -50,7 +50,6 @@ local CHAT_EVENTS_WITH_LEVELS = {
 }
 
 CPL.debugMode = true              -- Toggle with /cpl debug (requires Debug.lua)
-CPL.enabled = true                -- Toggle with /cpl enable
 
 --------------------------------------------------
 -- State Variables
@@ -75,7 +74,6 @@ end
 -- Command table for easy extension (one line to add new commands)
 -- Core commands only - Debug.lua adds its own commands when loaded
 CPL.commands = {
-    enable = {func = "toggleEnabled", desc = "Toggle addon on/off"},
     cache = {func = "debugCache", desc = "Show cache contents", args = "[name]", optional = true},
     channels = {func = "showChannels", desc = "Show monitored channels"},
     help = {func = "showHelp", desc = "Show this help"}
@@ -180,9 +178,6 @@ end
 
 -- Mouseover detection function
 function CPL:updateMouseOver()
-    if not self.enabled then
-        return
-    end
     if not UnitIsPlayer("mouseover") or not UnitIsFriend("player", "mouseover") then
         return
     end
@@ -244,12 +239,7 @@ end
 
 -- Chat message processing function
 local function OnChannelChat(self, event, msg, author, language, channelString, target, flags, unknown, channelNumber, channelName, ...)
-    -- Skip if addon disabled
-    if not CPL.enabled then
-        return false
-    end
-
-    -- Check if this channel is enabled (most frequent check)
+    -- Check if this channel is enabled
     if not (CPL.channelConfig[channelNumber] and CPL.channelConfig[channelNumber].enabled) then
         return false
     end
@@ -302,11 +292,6 @@ ChatFrame_AddMessageEventFilter("CHAT_MSG_CHANNEL", OnChannelChat)
 
 -- Generic display filter that prepends level to message
 local function PrependLevel(self, event, msg, author, ...)
-    -- Skip if addon disabled
-    if not CPL.enabled then
-        return false
-    end
-
     -- Strip realm suffix and get level
     local playerName = strsplit("-", author, 2)
     local level = CPL:getLevel(playerName)
@@ -404,11 +389,6 @@ end
 
 -- Process WHO queue on hardware events (mouse clicks)
 function CPL:processQueue()
-    -- Skip if addon disabled
-    if not self.enabled then
-        return
-    end
-
     -- Enforce 5-second cooldown between WHO queries
     local timeSinceLastWho = time() - self.lastWhoTime
     if timeSinceLastWho < WHO_COOLDOWN_SECONDS then
@@ -523,12 +503,6 @@ function CPL:debug(category, ...) end
 function CPL:print(...)
     local msg = table.concat({...}, " ")
     DEFAULT_CHAT_FRAME:AddMessage(msg, 1, 1, 1)
-end
-
--- Toggle addon on/off
-function CPL:toggleEnabled()
-    self.enabled = not self.enabled
-    self:print("CPL:", self.enabled and "ENABLED" or "DISABLED")
 end
 
 -- Debug stubs - overridden by Debug.lua if loaded
