@@ -52,6 +52,7 @@ CPL.commands = {
     enable = {func = "toggleEnabled", desc = "Toggle addon on/off"},
     cache = {func = "debugCache", desc = "Show cache contents (optional: /cpl cache <name> to filter)", args = "[name]", optional = true},
     queue = {func = "debugQueue", desc = "Show WHO queue contents"},
+    channels = {func = "showChannels", desc = "Show monitored channels"},
     debugframe = {func = "toggleDebugFrame", desc = "Toggle debug frame visibility"},
     help = {func = "showHelp", desc = "Show this help"}
 }
@@ -527,7 +528,25 @@ end
 function CPL:toggleDebugFrame() end
 function CPL:debugCache(filterName) end
 function CPL:debugQueue() end
-function CPL:debugChannels() end
+
+-- Show monitored channels (core command - always available)
+function CPL:showChannels()
+    self:print("=== CPL Monitored Channels ===")
+    local count = 0
+    for channelNum, config in pairs(self.channelConfig) do
+        if config.enabled then
+            local channelID, channelName = GetChannelName(channelNum)
+            if channelID > 0 then
+                self:print("  Channel " .. channelNum .. ": " .. channelName)
+                count = count + 1
+            end
+        end
+    end
+    if count == 0 then
+        self:print("  No channels currently monitored")
+    end
+    self:print("===============================")
+end
 
 -- Show help text (auto-generated from commands table)
 function CPL:showHelp()
@@ -540,3 +559,4 @@ function CPL:showHelp()
         self:print("  " .. usage .. " - " .. info.desc)
     end
 end
+
