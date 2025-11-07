@@ -48,11 +48,11 @@ end
 
 -- Command table for easy extension (one line to add new commands)
 CPL.commands = {
-    debug = {func = "toggleDebug", desc = "Toggle debug mode on/off"},
     enable = {func = "toggleEnabled", desc = "Toggle addon on/off"},
     cache = {func = "debugCache", desc = "Show cache contents (optional: /cpl cache <name> to filter)", args = "[name]", optional = true},
-    queue = {func = "debugQueue", desc = "Show WHO queue contents"},
     channels = {func = "showChannels", desc = "Show monitored channels"},
+    debug = {func = "toggleDebug", desc = "Toggle debug mode on/off"},
+    queue = {func = "debugQueue", desc = "Show WHO queue contents"},
     debugframe = {func = "toggleDebugFrame", desc = "Toggle debug frame visibility"},
     help = {func = "showHelp", desc = "Show this help"}
 }
@@ -511,12 +511,6 @@ function CPL:print(...)
     DEFAULT_CHAT_FRAME:AddMessage(msg, 1, 1, 1)
 end
 
--- Toggle debug mode on/off
-function CPL:toggleDebug()
-    self.debugMode = not self.debugMode
-    self:print("CPL Debug mode:", self.debugMode and "ON" or "OFF")
-end
-
 -- Toggle addon on/off
 function CPL:toggleEnabled()
     self.enabled = not self.enabled
@@ -524,8 +518,10 @@ function CPL:toggleEnabled()
 end
 
 -- Debug stubs - overridden by Debug.lua if loaded
+function CPL:toggleDebug() end
 function CPL:toggleDebugFrame() end
 function CPL:debugQueue() end
+function CPL:debugChannels() end
 
 -- Show cache contents (core command - always available)
 function CPL:debugCache(filterName)

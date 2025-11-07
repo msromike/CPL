@@ -63,6 +63,12 @@ local QUEUE_HEADER = "=== CPL WHO QUEUE ==="
 local QUEUE_FOOTER = "====================="
 local QUEUE_FORMAT = "  %d. %s (attempts: %d)"
 
+-- Toggle debug mode on/off
+function CPL:toggleDebug()
+    self.debugMode = not self.debugMode
+    self:print("CPL Debug mode:", self.debugMode and "ON" or "OFF")
+end
+
 -- Toggle debug frame visibility
 function CPL:toggleDebugFrame()
     local frame = _G["CPLDebugFrame"]
