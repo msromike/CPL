@@ -1,13 +1,17 @@
 -- CPL - Chat Player Levels
--- Inspired by Prat-3.0's player level caching approach
+-- Author: msromike
+-- Inspired by Prat-3.0's level caching approach
 -- Original Prat-3.0: Copyright (C) 2006-2018 Prat Development Team (GPL v2)
---
+
+-- Detects and displays player levels in chat channels.
+-- Uses intelligent caching and WHO queries to minimize API calls.
+
 -- Core Commands:
 --   /cpl enable    - Toggle addon on/off
 --   /cpl cache     - Show cached player levels
 --   /cpl channels  - Show monitored channels
 --   /cpl help      - List all commands
---
+
 -- Debug Commands (requires Debug.lua):
 --   /cpl debug      - Toggle debug output
 --   /cpl queue      - Show WHO query queue
@@ -324,24 +328,30 @@ function CPL:processWhoResults()
 
     -- Process WHO results using modern API
     local numResults = C_FriendList.GetNumWhoResults()
+    if numResults == 0 then
+        return
+    end
 
-    if numResults > 0 then
-        for i = 1, numResults do
-            local info = C_FriendList.GetWhoInfo(i)
-            if info and info.fullName and info.level then
-                if info.fullName:lower() == targetName:lower() then
-                    -- Cache the result
-                    self:addName(info.fullName, info.level, "WHO")
-                    -- Remove from queue on successful match
-                    for j, entry in ipairs(self.WhoQueue) do
-                        if entry[1] == targetName then
-                            table.remove(self.WhoQueue, j)
-                            break
-                        end
-                    end
-                end
-            end
+    for i = 1, numResults do
+        local info = C_FriendList.GetWhoInfo(i)
+
+        -- Skip invalid entries
+        if not (info and info.fullName and info.level) then
+            goto continue
         end
+
+        -- Check if this is our target
+        if info.fullName:lower() ~= targetName:lower() then
+            goto continue
+        end
+
+        -- Cache the result
+        self:addName(info.fullName, info.level, "WHO")
+
+        -- Remove from queue on successful match (always index 1 - we only query the first entry)
+        table.remove(self.WhoQueue, 1)
+
+        ::continue::
     end
 
     -- Clean up
@@ -561,15 +571,26 @@ end
 function CPL:showChannels()
     self:print("=== CPL Monitored Channels ===")
     local count = 0
+
     for channelNum, config in pairs(self.channelConfig) do
-        if config.enabled then
-            local channelID, channelName = GetChannelName(channelNum)
-            if channelID > 0 then
-                self:print("  Channel " .. channelNum .. ": " .. channelName)
-                count = count + 1
-            end
+        -- Skip disabled channels
+        if not config.enabled then
+            goto continue
         end
+
+        -- Skip invalid channels
+        local channelID, channelName = GetChannelName(channelNum)
+        if channelID == 0 then
+            goto continue
+        end
+
+        -- Display monitored channel
+        self:print("  Channel " .. channelNum .. ": " .. channelName)
+        count = count + 1
+
+        ::continue::
     end
+
     if count == 0 then
         self:print("  No channels currently monitored")
     end
