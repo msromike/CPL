@@ -60,7 +60,8 @@ function CPL:debug(category, ...)
 
     local color = DEBUG_COLORS[category] or DEBUG_COLORS.SYSTEM
     local paddedCategory = string.format("%" .. CATEGORY_WIDTH .. "s", category)
-    local msg = "[" .. paddedCategory .. "] " .. table.concat({...}, " ")
+    local timestamp = date("%H:%M:%S")
+    local msg = "[" .. timestamp .. "] [" .. paddedCategory .. "] " .. table.concat({...}, " ")
 
     -- Display in frame
     self.debugFrame:AddMessage(msg, color[1], color[2], color[3])
