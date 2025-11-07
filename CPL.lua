@@ -24,6 +24,9 @@ CPL.debugMode = true
 -- Enabled flag
 CPL.enabled = true
 
+-- WHO query throttle timestamp
+CPL.lastWhoTime = 0
+
 -- WHO query queue (array of {name, attempts})
 CPL.WhoQueue = {}
 
@@ -259,9 +262,11 @@ function CPL:processWhoResults()
 
     -- Clean up
     self.whoTarget = nil
-    -- Delay clearing suppressWho flag so "total" line also gets filtered
-    C_Timer.After(0.1, function()
-        CPL.suppressWho = false
+    -- Fallback timer clears suppressWho in case "total" never arrives (black hole/throttle)
+    C_Timer.After(1.0, function()
+        if CPL.suppressWho then
+            CPL.suppressWho = false
+        end
     end)
 end
 
@@ -272,6 +277,10 @@ local function FilterWhoResults(self, event, msg, ...)
         -- Match WHO result patterns:
         -- "PlayerName: Level XX ..." or anything ending with "total"
         if msg:match("^.+: Level %d+") or msg:match("total$") then
+            -- Clear flag immediately when we see "total" (event-driven)
+            if msg:match("total$") then
+                CPL.suppressWho = false
+            end
             return true -- Suppress this message
         end
     end
@@ -291,6 +300,13 @@ function CPL:processQueue()
         return
     end
 
+    -- Enforce 5-second cooldown between WHO queries
+    local timeSinceLastWho = time() - self.lastWhoTime
+    if timeSinceLastWho < 5 then
+        self:debug("THROTTLE: Click ignored, cooldown active", string.format("(%.1fs remaining)", 5 - timeSinceLastWho))
+        return
+    end
+
     -- Get first entry from queue (index 1)
     if #self.WhoQueue == 0 then
         return -- Queue empty (most common case when no chat activity)
@@ -306,6 +322,7 @@ function CPL:processQueue()
         self.suppressWho = true
         self:debug("HARDWARE EVENT: Sending WHO query for", nextPlayer, "(new)")
         C_FriendList.SendWho("n-\"" .. nextPlayer .. "\"")
+        self.lastWhoTime = time()
 
         -- Increment attempt counter and remove if exhausted
         entry[2] = entry[2] + 1
@@ -338,6 +355,7 @@ function CPL:processQueue()
     self.suppressWho = true
     self:debug("HARDWARE EVENT: Sending WHO query for", nextPlayer, "(update, age=" .. age .. "s)")
     C_FriendList.SendWho("n-\"" .. nextPlayer .. "\"")
+    self.lastWhoTime = time()
 
     -- Increment attempt counter and remove if exhausted
     entry[2] = entry[2] + 1
