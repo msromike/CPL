@@ -501,38 +501,8 @@ end
 -- Debug & Utility Functions
 --------------------------------------------------
 
--- Debug categories with colors
-CPL.debugColors = {
-    SYSTEM = {1, 1, 1},      -- White
-    GUILD = {0, 1, 0},       -- Green
-    DETECT = {0, 1, 1},      -- Cyan
-    CHAT = {1, 1, 0},        -- Yellow
-    WHO = {1, 0, 0}          -- Red
-}
-
--- Debug output function with category-based coloring
-function CPL:debug(category, ...)
-    if self.debugMode then
-        if self.debugFrame then
-            local color = self.debugColors[category] or {1, 1, 1}  -- Default white
-            -- Right-justify category name in 6-character brackets
-            local paddedCategory = string.format("%6s", category)
-            local msg = "[" .. paddedCategory .. "] " .. table.concat({...}, " ")
-            self.debugFrame:AddMessage(msg, color[1], color[2], color[3])
-
-            -- Store message for copy functionality (without color codes)
-            if not self.debugMessages then
-                self.debugMessages = {}
-            end
-            table.insert(self.debugMessages, msg)
-
-            -- Keep only last 2000 messages to prevent memory issues
-            if #self.debugMessages > 2000 then
-                table.remove(self.debugMessages, 1)
-            end
-        end
-    end
-end
+-- Debug stub - overridden by Debug.lua if loaded
+function CPL:debug(category, ...) end
 
 -- Print to chat frame (for non-debug system messages like help, cache, etc)
 function CPL:print(...)

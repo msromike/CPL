@@ -19,6 +19,42 @@ local BUTTON_SPACING = 5
 local FRAME_PADDING = { top = 30, bottom = 10, left = 10, right = 10 }
 local RESIZE_GRIP_SIZE = 16
 
+-- Debug categories with colors
+local DEBUG_COLORS = {
+    SYSTEM = {1, 1, 1},      -- White
+    GUILD = {0, 1, 0},       -- Green
+    DETECT = {0, 1, 1},      -- Cyan
+    CHAT = {1, 1, 0},        -- Yellow
+    WHO = {1, 0, 0}          -- Red
+}
+
+--------------------------------------------------
+-- Debug Message Handler
+--------------------------------------------------
+
+local MAX_STORED_MESSAGES = 2000
+local CATEGORY_WIDTH = 6
+
+-- Override the stub debug function from CPL.lua
+function CPL:debug(category, ...)
+    if not self.debugMode or not self.debugFrame then
+        return
+    end
+
+    local color = DEBUG_COLORS[category] or DEBUG_COLORS.SYSTEM
+    local paddedCategory = string.format("%" .. CATEGORY_WIDTH .. "s", category)
+    local msg = "[" .. paddedCategory .. "] " .. table.concat({...}, " ")
+
+    -- Display in frame
+    self.debugFrame:AddMessage(msg, color[1], color[2], color[3])
+
+    -- Store for copy functionality
+    table.insert(self.debugMessages, msg)
+    if #self.debugMessages > MAX_STORED_MESSAGES then
+        table.remove(self.debugMessages, 1)
+    end
+end
+
 --------------------------------------------------
 -- Helper Functions
 --------------------------------------------------
