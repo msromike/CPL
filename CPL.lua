@@ -13,47 +13,54 @@
 --   /cpl queue      - Show WHO query queue
 --   /cpl debugframe - Toggle debug frame
 
---------------------------------------------------
--- Addon Namespace & Configuration
---------------------------------------------------
-
--- Addon namespace (global so Debug.lua can access it)
-CPL = {}
+CPL = {} -- Global namespace (accessible to Debug.lua)
 
 --------------------------------------------------
 -- Configuration Constants
 --------------------------------------------------
 
--- Player scan cache expiry time in seconds (8 hours)
-CPL.cacheExpiry = 28800
+CPL.cacheExpiry = 28800           -- Player cache expiry (8 hours)
+local WHO_COOLDOWN_SECONDS = 5    -- WoW API throttle limit
+local MAX_WHO_ATTEMPTS = 3        -- Max WHO retries before giving up
+local GUILD_SCAN_COOLDOWN = 600   -- Guild roster scan throttle (10 minutes)
 
--- WHO query cooldown in seconds (WoW API throttle limit)
-local WHO_COOLDOWN_SECONDS = 5
+-- Chat events to prepend player levels to (add/remove as needed)
+local CHAT_EVENTS_WITH_LEVELS = {
+    "CHAT_MSG_CHANNEL",
+    "CHAT_MSG_PARTY",
+    "CHAT_MSG_PARTY_LEADER",
+    "CHAT_MSG_RAID",
+    "CHAT_MSG_RAID_LEADER",
+    "CHAT_MSG_RAID_WARNING",
+    "CHAT_MSG_GUILD",
+    "CHAT_MSG_OFFICER",
+    "CHAT_MSG_WHISPER",
+    "CHAT_MSG_WHISPER_INFORM",
+    "CHAT_MSG_BN_WHISPER",
+    "CHAT_MSG_BN_WHISPER_INFORM"
+    -- Additional chat types (uncomment to enable):
+    -- "CHAT_MSG_SAY",
+    -- "CHAT_MSG_YELL",
+    -- "CHAT_MSG_EMOTE",
+    -- "CHAT_MSG_TEXT_EMOTE",
+    -- "CHAT_MSG_AFK",
+    -- "CHAT_MSG_DND",
+    -- "CHAT_MSG_INSTANCE_CHAT",
+    -- "CHAT_MSG_INSTANCE_CHAT_LEADER",
+}
 
--- Maximum WHO query attempts before giving up
-local MAX_WHO_ATTEMPTS = 3
-
--- Debug mode flag - controlled by /cpl debug command (requires Debug.lua)
-CPL.debugMode = true
-
--- Enabled flag - controlled by /cpl enable command
-CPL.enabled = true
+CPL.debugMode = true              -- Toggle with /cpl debug (requires Debug.lua)
+CPL.enabled = true                -- Toggle with /cpl enable
 
 --------------------------------------------------
 -- State Variables
 --------------------------------------------------
 
--- WHO query throttle timestamp
-CPL.lastWhoTime = 0
+CPL.lastWhoTime = 0               -- WHO query throttle timestamp
+CPL.lastGuildScan = 0             -- Guild scan throttle timestamp
+CPL.WhoQueue = {}                 -- WHO query queue: {name, attempts}
 
--- Guild scan throttle timestamp
-CPL.lastGuildScan = 0
-
--- WHO query queue (array of {name, attempts})
-CPL.WhoQueue = {}
-
--- Channel configuration (future GUI will modify this)
--- Note: No hard-coded names - using dynamic channelName from game events
+-- Channel monitor configuration
 CPL.channelConfig = {}
 
 -- Initialize all channels 1-7 as enabled by default
@@ -74,7 +81,7 @@ CPL.commands = {
     help = {func = "showHelp", desc = "Show this help"}
 }
 
--- Clean slash command system
+-- Slash command system
 SLASH_CPL1 = "/cpl"
 SlashCmdList["CPL"] = function(msg)
     local cmd, arg = strsplit(" ", msg, 2)
@@ -145,7 +152,6 @@ frame:SetScript("OnEvent", function(self, event, ...)
             CPL:updateParty()
         end
     elseif event == "CHAT_MSG_SYSTEM" then
-        -- WHO results come through CHAT_MSG_SYSTEM in Classic Era
         CPL:processWhoResults()
     end
 end)
@@ -208,9 +214,9 @@ function CPL:updateGuild()
         return
     end
 
-    -- Throttle: Only scan once per 10 minutes
+    -- Throttle guild roster scans
     local now = time()
-    if (now - self.lastGuildScan) < 600 then
+    if (now - self.lastGuildScan) < GUILD_SCAN_COOLDOWN then
         self:debug("GUILD", "- Requesting roster update - Throttled")
         return
     end
@@ -248,7 +254,6 @@ local function OnChannelChat(self, event, msg, author, language, channelString, 
         return false
     end
 
-    -- Strip realm suffix (retail client artifact - not used in Classic Era)
     local playerName = strsplit("-", author, 2)
     local key = playerName:lower()
 
@@ -318,19 +323,10 @@ local function PrependLevel(self, event, msg, author, ...)
     return false, prefix .. msg, author, ...
 end
 
--- Register display filters for all chat types except SAY/YELL
-ChatFrame_AddMessageEventFilter("CHAT_MSG_CHANNEL", PrependLevel)
-ChatFrame_AddMessageEventFilter("CHAT_MSG_PARTY", PrependLevel)
-ChatFrame_AddMessageEventFilter("CHAT_MSG_PARTY_LEADER", PrependLevel)
-ChatFrame_AddMessageEventFilter("CHAT_MSG_RAID", PrependLevel)
-ChatFrame_AddMessageEventFilter("CHAT_MSG_RAID_LEADER", PrependLevel)
-ChatFrame_AddMessageEventFilter("CHAT_MSG_RAID_WARNING", PrependLevel)
-ChatFrame_AddMessageEventFilter("CHAT_MSG_GUILD", PrependLevel)
-ChatFrame_AddMessageEventFilter("CHAT_MSG_OFFICER", PrependLevel)
-ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER", PrependLevel)
-ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER_INFORM", PrependLevel)
-ChatFrame_AddMessageEventFilter("CHAT_MSG_BN_WHISPER", PrependLevel)
-ChatFrame_AddMessageEventFilter("CHAT_MSG_BN_WHISPER_INFORM", PrependLevel)
+-- Register display filters for configured chat events
+for _, event in ipairs(CHAT_EVENTS_WITH_LEVELS) do
+    ChatFrame_AddMessageEventFilter(event, PrependLevel)
+end
 
 --------------------------------------------------
 -- WHO Query System
@@ -390,6 +386,7 @@ local function FilterWhoResults(self, event, msg, ...)
     return false -- Show the message
 end
 
+-- Suppress addon-initiated WHO results from chat
 ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", FilterWhoResults)
 
 --------------------------------------------------
@@ -491,10 +488,13 @@ function CPL:addName(Name, Level, Source)
     -- Store level with timestamp: {level, timestamp}
     CPLDB.players[key] = {Level, now}
 
-    -- Debug output with normalized format (only if cached)
+    -- Skip debug output for guild scans (too verbose)
     if Source == "GUILD" then
-        -- Guild detections stay in GUILD category, no debug output here
-    elseif Source == "WHO" then
+        return
+    end
+
+    -- Debug output for other detection sources
+    if Source == "WHO" then
         self:debug("WHO", "- Received [" .. Name .. "] - Lvl " .. Level)
     elseif Source == "TARGET" and existing then
         self:debug("DETECT", "- Cached target [" .. Name .. "] - Lvl " .. Level)
