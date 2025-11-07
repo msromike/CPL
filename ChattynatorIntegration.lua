@@ -40,10 +40,19 @@ local function EchoTrade(data)
 
     -- Check if this is the Trade channel
     if data.typeInfo.channel.index == tradeChannelID then
-        -- Reconstruct player hyperlinks with [PLACEHOLDER] display text
-        -- Capture: |Hplayer:Name:ID:CHANNEL:N|h + (color codes and name) + |h
-        -- Rebuild: |Hplayer:Name:ID:CHANNEL:N|h[PLACEHOLDER]|h
-        local modifiedText = data.text:gsub("(|Hplayer:[^|]+|h)|cff%x%x%x%x%x%x[^|]+|r(|h)", "%1[PLACEHOLDER]%2")
+        -- Reconstruct player hyperlinks with level-prefixed names
+        -- Pattern captures: hyperlink header, player name from display portion, hyperlink closer
+        local modifiedText = data.text:gsub("(|Hplayer:([^:]+)[^|]*|h)|cff%x%x%x%x%x%x([^|]+)|r(|h)", function(header, hyperlinkName, displayName, closer)
+            -- Strip realm suffix from name (e.g., "Name-Realm" -> "Name")
+            local nameOnly = hyperlinkName:match("^([^%-]+)") or hyperlinkName
+
+            -- Look up level from CPL cache
+            local level = CPL:getLevel(nameOnly)
+            local levelPrefix = level and string.format("[%d] ", level) or "[??] "
+
+            -- Rebuild: |Hplayer:...|h[Level] Name|h
+            return header .. levelPrefix .. displayName .. closer
+        end)
 
         -- Debug output
         local escapedOriginal = data.text:gsub("|", "||")

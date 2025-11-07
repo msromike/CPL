@@ -313,8 +313,13 @@ local function PrependLevel(self, event, msg, author, ...)
 end
 
 -- Register display filters for configured chat events
+-- Skip CHAT_MSG_CHANNEL if Chattynator is loaded (it handles channel display)
 for _, event in ipairs(CHAT_EVENTS_WITH_LEVELS) do
-    ChatFrame_AddMessageEventFilter(event, PrependLevel)
+    if event == "CHAT_MSG_CHANNEL" and Chattynator then
+        CPL:debug("SYSTEM", "Skipping PrependLevel for CHAT_MSG_CHANNEL - Chattynator integration active")
+    else
+        ChatFrame_AddMessageEventFilter(event, PrependLevel)
+    end
 end
 
 --------------------------------------------------
