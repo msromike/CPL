@@ -20,14 +20,28 @@
 -- Addon namespace (global so Debug.lua can access it)
 CPL = {}
 
+--------------------------------------------------
+-- Configuration Constants
+--------------------------------------------------
+
 -- Player scan cache expiry time in seconds (8 hours)
 CPL.cacheExpiry = 28800
+
+-- WHO query cooldown in seconds (WoW API throttle limit)
+local WHO_COOLDOWN_SECONDS = 5
+
+-- Maximum WHO query attempts before giving up
+local MAX_WHO_ATTEMPTS = 3
 
 -- Debug mode flag - controlled by /cpl debug command (requires Debug.lua)
 CPL.debugMode = true
 
 -- Enabled flag - controlled by /cpl enable command
 CPL.enabled = true
+
+--------------------------------------------------
+-- State Variables
+--------------------------------------------------
 
 -- WHO query throttle timestamp
 CPL.lastWhoTime = 0
@@ -391,8 +405,8 @@ function CPL:processQueue()
 
     -- Enforce 5-second cooldown between WHO queries
     local timeSinceLastWho = time() - self.lastWhoTime
-    if timeSinceLastWho < 5 then
-        self:debug("WHO", "- Throttled API call - Next in " .. string.format("%.1fs", 5 - timeSinceLastWho))
+    if timeSinceLastWho < WHO_COOLDOWN_SECONDS then
+        self:debug("WHO", "- Throttled API call - Next in " .. string.format("%.1fs", WHO_COOLDOWN_SECONDS - timeSinceLastWho))
         return
     end
 
@@ -415,9 +429,9 @@ function CPL:processQueue()
 
         -- Increment attempt counter and remove if exhausted
         entry[2] = entry[2] + 1
-        if entry[2] >= 3 then
+        if entry[2] >= MAX_WHO_ATTEMPTS then
             table.remove(self.WhoQueue, 1)
-            self:debug("WHO", "- Removed [" .. nextPlayer .. "] from queue - Max attempts (3)")
+            self:debug("WHO", "- Removed [" .. nextPlayer .. "] from queue - Max attempts (" .. MAX_WHO_ATTEMPTS .. ")")
         end
         return
     end
@@ -441,9 +455,9 @@ function CPL:processQueue()
 
     -- Increment attempt counter and remove if exhausted
     entry[2] = entry[2] + 1
-    if entry[2] >= 3 then
+    if entry[2] >= MAX_WHO_ATTEMPTS then
         table.remove(self.WhoQueue, 1)
-        self:debug("WHO", "- Removed [" .. nextPlayer .. "] from queue - Max attempts (3)")
+        self:debug("WHO", "- Removed [" .. nextPlayer .. "] from queue - Max attempts (" .. MAX_WHO_ATTEMPTS .. ")")
     end
 end
 
