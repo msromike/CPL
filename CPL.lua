@@ -335,23 +335,14 @@ function CPL:processWhoResults()
     for i = 1, numResults do
         local info = C_FriendList.GetWhoInfo(i)
 
-        -- Skip invalid entries
-        if not (info and info.fullName and info.level) then
-            goto continue
+        -- Process valid entries that match our target
+        if info and info.fullName and info.level and info.fullName:lower() == targetName:lower() then
+            -- Cache the result
+            self:addName(info.fullName, info.level, "WHO")
+
+            -- Remove from queue on successful match (always index 1 - we only query the first entry)
+            table.remove(self.WhoQueue, 1)
         end
-
-        -- Check if this is our target
-        if info.fullName:lower() ~= targetName:lower() then
-            goto continue
-        end
-
-        -- Cache the result
-        self:addName(info.fullName, info.level, "WHO")
-
-        -- Remove from queue on successful match (always index 1 - we only query the first entry)
-        table.remove(self.WhoQueue, 1)
-
-        ::continue::
     end
 
     -- Clean up
@@ -573,22 +564,14 @@ function CPL:showChannels()
     local count = 0
 
     for channelNum, config in pairs(self.channelConfig) do
-        -- Skip disabled channels
-        if not config.enabled then
-            goto continue
+        -- Display enabled channels with valid IDs
+        if config.enabled then
+            local channelID, channelName = GetChannelName(channelNum)
+            if channelID > 0 then
+                self:print("  Channel " .. channelNum .. ": " .. channelName)
+                count = count + 1
+            end
         end
-
-        -- Skip invalid channels
-        local channelID, channelName = GetChannelName(channelNum)
-        if channelID == 0 then
-            goto continue
-        end
-
-        -- Display monitored channel
-        self:print("  Channel " .. channelNum .. ": " .. channelName)
-        count = count + 1
-
-        ::continue::
     end
 
     if count == 0 then
