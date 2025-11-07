@@ -40,10 +40,19 @@ local function EchoTrade(data)
 
     -- Check if this is the Trade channel
     if data.typeInfo.channel.index == tradeChannelID then
-        -- Escape pipes to show raw hyperlink codes
-        local escapedText = data.text:gsub("|", "||")
-        CPL:debug("CHAT", string.format("TRADE RAW: %s", escapedText))
-        CPL:debug("CHAT", string.format("TRADE RENDERED: %s", data.text))
+        -- Reconstruct player hyperlinks with [PLACEHOLDER] display text
+        -- Capture: |Hplayer:Name:ID:CHANNEL:N|h + (color codes and name) + |h
+        -- Rebuild: |Hplayer:Name:ID:CHANNEL:N|h[PLACEHOLDER]|h
+        local modifiedText = data.text:gsub("(|Hplayer:[^|]+|h)|cff%x%x%x%x%x%x[^|]+|r(|h)", "%1[PLACEHOLDER]%2")
+
+        -- Debug output
+        local escapedOriginal = data.text:gsub("|", "||")
+        local escapedModified = modifiedText:gsub("|", "||")
+        CPL:debug("CHAT", string.format("TRADE ORIGINAL: %s", escapedOriginal))
+        CPL:debug("CHAT", string.format("TRADE MODIFIED: %s", escapedModified))
+
+        -- Return modified text to display in chat
+        data.text = modifiedText
     end
 end
 
