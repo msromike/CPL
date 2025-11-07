@@ -250,12 +250,6 @@ local function OnChannelChat(self, event, msg, author, language, channelString, 
         return false
     end
 
-    -- Level 60? Never update (most common for cached players)
-    if data[1] == 60 then
-        CPL:debug("CHAT - Channel " .. channelNumber .. " (" .. (channelName or "Unknown") .. "): " .. playerName)
-        return false
-    end
-
     -- Cache stale (older than expiry)? Re-queue for update
     local age = time() - data[2]
     if age > CPL.cacheExpiry then
@@ -269,6 +263,47 @@ end
 
 -- Register chat message filter for channel monitoring
 ChatFrame_AddMessageEventFilter("CHAT_MSG_CHANNEL", OnChannelChat)
+
+--------------------------------------------------
+-- Chat Message Display (Level Prepending)
+--------------------------------------------------
+
+-- Generic display filter that prepends level to message
+local function PrependLevel(self, event, msg, author, ...)
+    -- Skip if addon disabled
+    if not CPL.enabled then
+        return false
+    end
+
+    -- Strip realm suffix and get level
+    local playerName = strsplit("-", author, 2)
+    local level = CPL:getLevel(playerName)
+
+    -- Prepend level if known (pad single digits), otherwise show [..]
+    local prefix
+    if level then
+        prefix = string.format("[%02d] ", level)
+    else
+        prefix = "[..] "
+    end
+
+    -- Return modified message with all original params
+    return false, prefix .. msg, author, ...
+end
+
+-- Register display filters for all chat types except SAY/YELL
+ChatFrame_AddMessageEventFilter("CHAT_MSG_CHANNEL", PrependLevel)
+ChatFrame_AddMessageEventFilter("CHAT_MSG_PARTY", PrependLevel)
+ChatFrame_AddMessageEventFilter("CHAT_MSG_PARTY_LEADER", PrependLevel)
+ChatFrame_AddMessageEventFilter("CHAT_MSG_RAID", PrependLevel)
+ChatFrame_AddMessageEventFilter("CHAT_MSG_RAID_LEADER", PrependLevel)
+ChatFrame_AddMessageEventFilter("CHAT_MSG_RAID_WARNING", PrependLevel)
+ChatFrame_AddMessageEventFilter("CHAT_MSG_GUILD", PrependLevel)
+ChatFrame_AddMessageEventFilter("CHAT_MSG_OFFICER", PrependLevel)
+ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER", PrependLevel)
+ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER_INFORM", PrependLevel)
+ChatFrame_AddMessageEventFilter("CHAT_MSG_BN_WHISPER", PrependLevel)
+ChatFrame_AddMessageEventFilter("CHAT_MSG_BN_WHISPER_INFORM", PrependLevel)
 
 --------------------------------------------------
 -- WHO Query System
@@ -374,13 +409,6 @@ function CPL:processQueue()
         return
     end
 
-    -- Cached at level 60? Remove from queue (immutable, most common cached case)
-    if data[1] == 60 then
-        table.remove(self.WhoQueue, 1)
-        self:debug("QUEUE: Removed level 60 player", nextPlayer)
-        return
-    end
-
     -- Check cache age
     local age = time() - data[2]
 
@@ -420,8 +448,8 @@ function CPL:addName(Name, Level, Source)
     local key = Name and Name:lower()
     local existing = key and CPLDB.players[key]
 
-    -- Skip if invalid data or already cached at max level
-    if not (Name and Level and Level > 0) or (existing and existing[1] == 60) then
+    -- Skip if invalid data
+    if not (Name and Level and Level > 0) then
         return
     end
 
