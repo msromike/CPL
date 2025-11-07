@@ -59,20 +59,25 @@ end
 -- Debug Commands
 --------------------------------------------------
 
+-- Command output formatting constants
 local QUEUE_HEADER = "=== CPL WHO QUEUE ==="
 local QUEUE_FOOTER = "====================="
 local QUEUE_FORMAT = "  %d. %s (attempts: %d)"
 
 -- Toggle debug mode on/off
+-- Overrides stub from CPL.lua when Debug.lua is loaded
 function CPL:toggleDebug()
     self.debugMode = not self.debugMode
     self:print("CPL Debug mode:", self.debugMode and "ON" or "OFF")
 end
 
--- Toggle debug frame visibility
+-- Show or hide the debug frame window
+-- Overrides stub from CPL.lua when Debug.lua is loaded
 function CPL:toggleDebugFrame()
     local frame = _G["CPLDebugFrame"]
-    if not frame then return end
+    if not frame then
+        return
+    end
 
     if frame:IsShown() then
         frame:Hide()
@@ -82,7 +87,9 @@ function CPL:toggleDebugFrame()
     end
 end
 
--- Display WHO query queue
+-- Display WHO query queue contents to chat
+-- Shows pending player lookups with attempt counts
+-- Overrides stub from CPL.lua when Debug.lua is loaded
 function CPL:debugQueue()
     self:print(QUEUE_HEADER)
 
@@ -94,7 +101,9 @@ function CPL:debugQueue()
     self:print(QUEUE_FOOTER)
 end
 
--- Display currently monitored channels
+-- Display currently monitored channels to debug frame
+-- Called on startup when debug mode is enabled
+-- Overrides stub from CPL.lua when Debug.lua is loaded
 function CPL:debugChannels()
     for channelNum, config in pairs(self.channelConfig) do
         if config.enabled then
@@ -107,10 +116,11 @@ function CPL:debugChannels()
 end
 
 --------------------------------------------------
--- Register Debug Commands
+-- Command Registration
 --------------------------------------------------
 
--- Add debug commands to the command table
+-- Dynamically register debug commands when module loads
+-- These commands only appear in /cpl help when Debug.lua is loaded
 CPL.commands.debug = {func = "toggleDebug", desc = "Toggle debug mode on/off"}
 CPL.commands.queue = {func = "debugQueue", desc = "Show WHO queue contents"}
 CPL.commands.debugframe = {func = "toggleDebugFrame", desc = "Toggle debug frame visibility"}
@@ -282,14 +292,18 @@ local function CreateDebugFrame()
 end
 
 --------------------------------------------------
--- Initialization
+-- Module Initialization
 --------------------------------------------------
 
+-- Initialize debug module when CPL addon loads
 local initFrame = CreateFrame("Frame")
 initFrame:RegisterEvent("ADDON_LOADED")
 initFrame:SetScript("OnEvent", function(self, event, addonName)
     if event == "ADDON_LOADED" and addonName == "CPL" then
+        -- Create the debug frame UI
         CreateDebugFrame()
+
+        -- Clean up event handler
         self:UnregisterEvent("ADDON_LOADED")
     end
 end)
