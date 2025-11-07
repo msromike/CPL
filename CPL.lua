@@ -181,9 +181,9 @@ function CPL:updateGuild()
         return
     end
 
-    -- Throttle: Only scan once per minute
+    -- Throttle: Only scan once per 10 minutes
     local now = time()
-    if (now - self.lastGuildScan) < 60 then
+    if (now - self.lastGuildScan) < 600 then
         self:debug("GUILD: Scan throttled (cooldown active)")
         return
     end
