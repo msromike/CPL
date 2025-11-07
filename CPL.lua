@@ -204,62 +204,46 @@ frame:SetScript("OnEvent", function(self, event, ...)
             -- Store messages for copy functionality
             CPL.debugMessages = {}
 
-            -- Create a hidden EditBox for copying text
-            local copyBox = CreateFrame("EditBox", nil, f)
-            copyBox:SetMultiLine(true)
-            copyBox:SetMaxLetters(0)
-            copyBox:SetFontObject(GameFontNormalSmall)
-            copyBox:SetAutoFocus(false)
+            -- Create EditBox for copying (hidden by default)
+            local copyBox = CreateFrame("ScrollFrame", nil, f, "UIPanelScrollFrameTemplate")
             copyBox:SetPoint("TOPLEFT", 10, -30)
-            copyBox:SetPoint("BOTTOMRIGHT", -10, 10)
+            copyBox:SetPoint("BOTTOMRIGHT", -30, 10)
             copyBox:Hide()
 
-            -- Add ESC handler to exit copy mode
-            copyBox:SetScript("OnEscapePressed", function(self)
-                copyBtn:Click()  -- Trigger copy button to exit copy mode
+            local copyEdit = CreateFrame("EditBox", nil, copyBox)
+            copyEdit:SetMultiLine(true)
+            copyEdit:SetMaxLetters(0)
+            copyEdit:SetFontObject(GameFontNormalSmall)
+            copyEdit:SetWidth(370)
+            copyEdit:SetAutoFocus(false)
+            copyEdit:SetScript("OnEscapePressed", function(self)
+                self:ClearFocus()
+                copyBox:Hide()
+                scroll:Show()
+                copyBtn:SetText("Copy")
+                CPL.copyMode = false
             end)
 
-            -- Create a background for the EditBox
-            local copyBoxBg = copyBox:CreateTexture(nil, "BACKGROUND")
-            copyBoxBg:SetAllPoints()
-            copyBoxBg:SetColorTexture(0, 0, 0, 0.9)
-
-            -- Create a scroll frame for the EditBox
-            local copyScrollFrame = CreateFrame("ScrollFrame", nil, f, "UIPanelScrollFrameTemplate")
-            copyScrollFrame:SetPoint("TOPLEFT", 10, -30)
-            copyScrollFrame:SetPoint("BOTTOMRIGHT", -30, 10)
-            copyScrollFrame:SetScrollChild(copyBox)
-            copyScrollFrame:Hide()
-
-            -- Store reference to toggle between scroll and copyBox
+            copyBox:SetScrollChild(copyEdit)
             CPL.copyMode = false
-            CPL.copyBox = copyBox
-            CPL.copyScrollFrame = copyScrollFrame
 
             -- Copy button functionality
             copyBtn:SetScript("OnClick", function()
                 if not CPL.copyMode then
-                    -- Enter copy mode
                     CPL.copyMode = true
                     scroll:Hide()
-                    copyScrollFrame:Show()
                     copyBox:Show()
-
-                    -- Populate the EditBox with all messages
                     local text = table.concat(CPL.debugMessages, "\n")
-                    copyBox:SetText(text)
-                    copyBox:HighlightText()
-                    copyBox:SetFocus()
-
+                    copyEdit:SetText(text)
+                    copyEdit:SetCursorPosition(0)
+                    copyEdit:HighlightText(0, #text)
+                    copyEdit:SetFocus()
                     copyBtn:SetText("Done")
                 else
-                    -- Exit copy mode
                     CPL.copyMode = false
+                    copyEdit:ClearFocus()
                     copyBox:Hide()
-                    copyScrollFrame:Hide()
                     scroll:Show()
-                    copyBox:ClearFocus()
-
                     copyBtn:SetText("Copy")
                 end
             end)
@@ -268,18 +252,6 @@ frame:SetScript("OnEvent", function(self, event, ...)
             clearBtn:SetScript("OnClick", function()
                 scroll:Clear()
                 CPL.debugMessages = {}
-            end)
-
-            -- Add keyboard shortcut support (Ctrl+C to copy)
-            f:EnableKeyboard(false)  -- Only enable when frame has focus
-            f:SetPropagateKeyboardInput(true)
-
-            -- Add a way to activate copy mode with Ctrl+C when hovering over frame
-            f:SetScript("OnKeyDown", function(self, key)
-                if key == "C" and IsControlKeyDown() then
-                    copyBtn:Click()  -- Trigger the copy button
-                    return
-                end
             end)
 
             f:Show()
