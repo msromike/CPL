@@ -52,14 +52,35 @@ end
 
 -- Add levels to player names in social channels
 local function AddLevelsToChat(data)
-    if not (data.typeInfo and data.typeInfo.channel) then
-        return
+    local event = data.typeInfo and data.typeInfo.event
+
+    -- Events to process (table lookup for clean logic)
+    local eventsToProcess = {
+        CHAT_MSG_CHANNEL = "channel",  -- Special handling needed
+        CHAT_MSG_SAY = true,
+        CHAT_MSG_YELL = true,
+        CHAT_MSG_WHISPER = true,
+        CHAT_MSG_WHISPER_INFORM = true,
+        CHAT_MSG_PARTY = true,
+        CHAT_MSG_PARTY_LEADER = true,
+        CHAT_MSG_RAID = true,
+        CHAT_MSG_RAID_LEADER = true,
+        CHAT_MSG_RAID_WARNING = true,
+        CHAT_MSG_GUILD = true,
+        CHAT_MSG_OFFICER = true,
+    }
+
+    -- Check if this is an event type we want to process
+    if not eventsToProcess[event] then
+        return  -- Not an event we process, skip
     end
 
-    -- Check if this is a social channel we care about
-    local channelID = data.typeInfo.channel.index
-    if not socialChannels[channelID] then
-        return  -- Not a social channel, skip
+    -- Special handling for channels - check if it's a social channel
+    if event == "CHAT_MSG_CHANNEL" then
+        local channelID = data.typeInfo.channel and data.typeInfo.channel.index
+        if not (channelID and socialChannels[channelID]) then
+            return  -- Not a social channel, skip
+        end
     end
 
     -- Reconstruct player hyperlinks with level-prefixed names and class colors
@@ -69,7 +90,7 @@ local function AddLevelsToChat(data)
 
         -- Look up level from CPL cache
         local level = CPL:getLevel(nameOnly)
-        local levelPrefix = level and string.format("[%d] ", level) or "[??] "
+        local levelPrefix = level and string.format("[%02d] ", level) or "[??] "
 
         -- Rebuild: |Hplayer:...|h|cffCOLOR[Level] Name|r|h
         return header .. colorCode .. levelPrefix .. displayName .. "|r" .. closer
