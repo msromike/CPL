@@ -1,3 +1,39 @@
-# Ignore third-party addons
+# CPL .gitignore - Exclude development files and archives
+
+# Development directories - DO NOT PUBLISH
+archive/
+dev_docs/
+
+# IDE and editor configuration
+.vscode/
+.idea/
+
+# Lua linting configuration
+.luacheckrc
+luacheck.rc
+
+# Third-party addons (for local testing)
 ChatLevelsAndRace/
 Prat-3.0/
+Ace3/
+Chattynator/
+
+# WoW SavedVariables (user data)
+*.lua.bak
+WTF/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Archive files
+*.rar
+*.zip
+
+# Temporary and build files
+*.tmp
+*.temp
+*~
+release/
+dist/

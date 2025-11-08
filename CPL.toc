@@ -1,8 +1,11 @@
 ## Interface: 11507
 ## Title: CPL - Chat Player Levels
 ## Notes: Adds player levels to chat messages in Classic WoW Anniversary
-## Author: Michael Roberts
+## Author: msromike
 ## Version: 1.0
 ## SavedVariables: CPLDB
+## OptionalDeps: Chattynator
 
 CPL.lua
+Debug.lua
+ChattynatorIntegration.lua

@@ -1,0 +1,71 @@
+{
+    "files.associations": {
+        "*.toc": "plaintext",
+        ".luacheckrc": "properties"
+    },
+    "markdownlint.config": {
+        "MD040": false,
+        "MD013": false,
+        "MD033": false
+    },
+    "Lua.diagnostics.globals": [
+        "CreateFrame",
+        "ChatFrame_AddMessageEventFilter",
+        "UnitExists",
+        "UnitName",
+        "UnitLevel",
+        "UnitIsPlayer",
+        "UnitClass",
+        "UnitRace",
+        "strsplit",
+        "strjoin",
+        "ADDON_LOADED",
+        "PLAYER_TARGET_CHANGED",
+        "PLAYER_LOGIN",
+        "PLAYER_LOGOUT",
+        "CPLDB",
+        "C_AddOns",
+        "C_FriendList",
+        "C_Timer",
+        "LibStub",
+        "GetAddOnMetadata",
+        "IsAddOnLoaded",
+        "GetNumGroupMembers",
+        "GetNumSubgroupMembers",
+        "GetRaidRosterInfo",
+        "IsInRaid",
+        "GetNumGuildMembers",
+        "GetGuildRosterInfo",
+        "IsInGuild",
+        "GuildRoster",
+        "UnitIsFriend",
+        "time",
+        "SlashCmdList",
+        "print",
+        "pairs",
+        "ipairs",
+        "next",
+        "type",
+        "tostring",
+        "tonumber",
+        "_G",
+        "WorldFrame",
+        "GetChannelName",
+        "SLASH_CPL1",
+        "date",
+        "GetTime",
+        "DEFAULT_CHAT_FRAME",
+        "GameFontNormal",
+        "GameFontNormalSmall",
+        "UIParent",
+        "Chattynator",
+        "CPL"
+    ],
+    "Lua.diagnostics.disable": [
+        "duplicate-set-field"
+    ],
+    "Lua.workspace.ignoreDir": [
+        "archive/"
+    ],
+    "search.useIgnoreFiles": false
+}

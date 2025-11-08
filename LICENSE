@@ -1,9 +1,6 @@
-# GNU GENERAL PUBLIC LICENSE
+# CPL - Chat Player Levels
 
-                Version 3, 29 June 2007
-
-Copyright (C) 2025 Michael Roberts
-Portions Copyright (C) Prat-3.0 Authors
+Copyright (C) 2025 msromike
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -16,13 +13,20 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ---
 
+ATTRIBUTION:
 This project contains code derived from Prat-3.0 (<https://github.com/Prat-3.0/Prat-3.0>),
-which is licensed under the GNU General Public License v3.0.
+specifically the player level caching and WHO query system.
+Portions Copyright (C) 2006-2018 Prat-3.0 Development Team
 
-Full license text follows:
+Prat-3.0 is licensed under the GNU General Public License v2.0 or later.
+
+---
+
+GNU GENERAL PUBLIC LICENSE
+Version 3, 29 June 2007
 
 [...]
