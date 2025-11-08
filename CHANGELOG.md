@@ -5,6 +5,21 @@ All notable changes to CPL (Chat Player Levels) will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2025-11-08
+
+### Fixed
+
+- **Consistency:** Changed unknown level indicator from `[..]` to `[??]` in CPL.lua to match ChattynatorIntegration.lua
+- **Documentation:** Updated CurseForge description to explain `[??]` placeholder for uncached players
+
+### Improved
+
+- **Performance:** Added `OnMouseUp` event hook alongside `OnMouseDown` for more frequent WHO queue processing opportunities
+
+### Changed
+
+- Updated CurseForge description for clarity on gradual level detection and Blizzard/Chattynator chat support
+
 ## [1.0.0] - 2025-11-07
 
 ### Added

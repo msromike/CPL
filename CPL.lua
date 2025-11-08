@@ -406,12 +406,12 @@ local function PrependLevel(self, event, msg, author, ...)
     local playerName = strsplit("-", author, 2)
     local level = CPL:getLevel(playerName)
 
-    -- Prepend level if known (pad single digits), otherwise show [..]
+    -- Prepend level if known (pad single digits), otherwise show [??]
     local prefix
     if level then
         prefix = string.format("[%02d] ", level)
     else
-        prefix = "[..] "
+        prefix = "[??] "
     end
 
     -- Return modified message with all original params
@@ -564,8 +564,12 @@ function CPL:processQueue()
     incrementAttemptOrRemove(entry, 1, nextPlayer)
 end
 
--- Hook mouse clicks to process queue
+-- Hook hardware events to process queue
 WorldFrame:HookScript("OnMouseDown", function()
+    CPL:processQueue()
+end)
+
+WorldFrame:HookScript("OnMouseUp", function()
     CPL:processQueue()
 end)
 
