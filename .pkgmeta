@@ -1,0 +1,42 @@
+package-as: CPL
+
+enable-nolib-creation: no
+
+ignore:
+  # Development and archive files
+  - archive
+  - dev_docs
+
+  # IDE and editor files
+  - .vscode
+  - .idea
+  - .git
+  - .gitignore
+  - .gitattributes
+
+  # Linting configuration
+  - .luacheckrc
+  - luacheck.rc
+
+  # Development documentation (keep README.md and CHANGELOG.md)
+  - VSCODE_GREP_TROUBLESHOOTING.md
+  - "*.txt"
+
+  # Third-party addons (users install separately)
+  - Chattynator
+  - ChatLevelsAndRace
+  - Prat-3.0
+  - Ace3
+
+  # Temporary and build files
+  - "*.tmp"
+  - "*.temp"
+  - "*.bak"
+  - "*.rar"
+  - "*.zip"
+  - release
+  - dist
+
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown

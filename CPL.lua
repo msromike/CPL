@@ -40,11 +40,9 @@ local CHAT_EVENTS_WITH_LEVELS = {
     "CHAT_MSG_OFFICER",
     "CHAT_MSG_WHISPER",
     "CHAT_MSG_WHISPER_INFORM",
-    "CHAT_MSG_BN_WHISPER",
-    "CHAT_MSG_BN_WHISPER_INFORM"
+    "CHAT_MSG_SAY",
+    "CHAT_MSG_YELL"
     -- Additional chat types (uncomment to enable):
-    -- "CHAT_MSG_SAY",
-    -- "CHAT_MSG_YELL",
     -- "CHAT_MSG_EMOTE",
     -- "CHAT_MSG_TEXT_EMOTE",
     -- "CHAT_MSG_AFK",
@@ -421,10 +419,25 @@ local function PrependLevel(self, event, msg, author, ...)
 end
 
 -- Register display filters for configured chat events
--- Skip CHAT_MSG_CHANNEL if Chattynator is loaded (it handles channel display)
+-- Skip events handled by Chattynator integration
+local chattynatorEvents = {
+    CHAT_MSG_CHANNEL = true,
+    CHAT_MSG_SAY = true,
+    CHAT_MSG_YELL = true,
+    CHAT_MSG_WHISPER = true,
+    CHAT_MSG_WHISPER_INFORM = true,
+    CHAT_MSG_PARTY = true,
+    CHAT_MSG_PARTY_LEADER = true,
+    CHAT_MSG_RAID = true,
+    CHAT_MSG_RAID_LEADER = true,
+    CHAT_MSG_RAID_WARNING = true,
+    CHAT_MSG_GUILD = true,
+    CHAT_MSG_OFFICER = true,
+}
+
 for _, event in ipairs(CHAT_EVENTS_WITH_LEVELS) do
-    if event == "CHAT_MSG_CHANNEL" and Chattynator then
-        CPL:debug("SYSTEM", "Skipping PrependLevel for CHAT_MSG_CHANNEL - Chattynator integration active")
+    if chattynatorEvents[event] and Chattynator then
+        CPL:debug("SYSTEM", "Skipping PrependLevel for " .. event .. " - Chattynator integration active")
     else
         ChatFrame_AddMessageEventFilter(event, PrependLevel)
     end

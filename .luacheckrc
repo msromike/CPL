@@ -2,6 +2,7 @@ std = "max"
 unused_args = false
 max_line_length = false
 allow_defined_top = true
+ignore = {"212"}  -- Ignore unused argument warnings for stub functions
 
 read_globals = {
     "CreateFrame",
@@ -51,6 +52,8 @@ read_globals = {
     "GetTime",
     "IsInGuild",
     "GuildRoster",
+    "Chattynator",  -- Optional dependency
+    "CPL",          -- Our global namespace
 }
 
 globals = {

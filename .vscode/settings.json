@@ -57,7 +57,12 @@
         "DEFAULT_CHAT_FRAME",
         "GameFontNormal",
         "GameFontNormalSmall",
-        "UIParent"
+        "UIParent",
+        "Chattynator",
+        "CPL"
+    ],
+    "Lua.diagnostics.disable": [
+        "duplicate-set-field"
     ],
     "Lua.workspace.ignoreDir": [
         "archive/"
