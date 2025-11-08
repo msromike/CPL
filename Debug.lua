@@ -59,7 +59,7 @@ function CPL:debug(category, ...)
     end
 
     local color = DEBUG_COLORS[category] or DEBUG_COLORS.SYSTEM
-    local paddedCategory = string.format("%" .. CATEGORY_WIDTH .. "s", category)
+    local paddedCategory = string.format("%-" .. CATEGORY_WIDTH .. "s", category)  -- Left justify with -
     local timestamp = date("%H:%M:%S")
     local msg = "[" .. timestamp .. "] [" .. paddedCategory .. "] " .. table.concat({...}, " ")
 

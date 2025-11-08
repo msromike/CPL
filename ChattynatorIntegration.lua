@@ -3,6 +3,8 @@
 
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("ADDON_LOADED")
+frame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+frame:RegisterEvent("CHANNEL_UI_UPDATE")
 
 -- Store Trade channel ID
 local tradeChannelID = nil
@@ -79,6 +81,16 @@ frame:SetScript("OnEvent", function(self, event, addonName)
     if event == "ADDON_LOADED" then
         if addonName == "CPL" or addonName == "Chattynator" then
             InitIntegration()
+        end
+    elseif event == "ZONE_CHANGED_NEW_AREA" then
+        if CPL and CPL.debug then
+            CPL:debug("SYSTEM", "Zone changed - rescanning channels")
+            DiscoverChannels()
+        end
+    elseif event == "CHANNEL_UI_UPDATE" then
+        if CPL and CPL.debug then
+            CPL:debug("SYSTEM", "Channels updated - rescanning")
+            DiscoverChannels()
         end
     end
 end)
