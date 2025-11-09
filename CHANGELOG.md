@@ -5,6 +5,34 @@ All notable changes to CPL (Chat Player Levels) will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [1.0.2] - 2025-11-09
+
+### Fixed
+
+- **Social Frame Popups:** Reduced MAX_WHO_ATTEMPTS from 3 to 1 to minimize Social frame popups
+  - Ambiguous player names (e.g., "Bank", "Bankalt") trigger multiple WHO results, causing Social frame to pop
+  - Reducing retry attempts from 3 to 1 eliminates 67% of popup spam
+  - Trade-off: Slightly lower cache hit rate, but dramatically improved UX in busy zones
+
+### Improved
+
+- **Debug UX:** Throttled debug messages to prevent spam while maintaining educational value
+  - Guild scan: Message now appears once per minute (guild events fire frequently from party/raid updates)
+  - WHO throttle: Suppressed duplicate messages from OnMouseDown + OnMouseUp firing together on normal clicks
+    - 200ms window catches duplicates from single clicks while preserving messages from click-and-hold events
+  - Actual scan/query throttles remain unchanged, message throttling only prevents chat spam
+
+### Changed
+
+- **Slash Commands:** `/cpl queue` and all commands starting with 'q' now trigger queue display (e.g., `/cpl q`)
+- **Timer Display:** Changed all debug timers from count-up to countdown format for better learning experience
+  - WHO throttle: Shows "Next in X.Xs"
+  - Guild scan throttle: Shows "Next in Xm Xs" when scan is throttled
+  - Cache staleness: Shows "Stale (X.Xh overdue)" instead of "Stale X.Xh ago"
+  - Countdown timers help users understand cooldown durations
+
 ## [1.0.1] - 2025-11-08
 
 ### Fixed

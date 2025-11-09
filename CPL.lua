@@ -25,7 +25,7 @@ CPL = {} -- Global namespace (accessible to Debug.lua)
 
 CPL.cacheExpiry = 28800           -- Player cache expiry (8 hours)
 local WHO_COOLDOWN_SECONDS = 5    -- WoW API throttle limit
-local MAX_WHO_ATTEMPTS = 3        -- Max WHO retries before giving up
+local MAX_WHO_ATTEMPTS = 1        -- Max WHO retries before giving up
 local GUILD_SCAN_COOLDOWN = 600   -- Guild roster scan throttle (10 minutes)
 
 -- Chat events to prepend player levels to (add/remove as needed)
@@ -58,7 +58,9 @@ CPL.debugMode = true              -- Toggle with /cpl debug (requires Debug.lua)
 --------------------------------------------------
 
 CPL.lastWhoTime = 0               -- WHO query throttle timestamp
+CPL.lastWhoThrottleMsg = 0        -- WHO throttle debug message timestamp
 CPL.lastGuildScan = 0             -- Guild scan throttle timestamp
+CPL.lastGuildThrottleMsg = 0      -- Guild throttle debug message timestamp
 CPL.WhoQueue = {}                 -- WHO query queue: {name, attempts}
 
 -- Duplicate suppression state (event-driven, no timers)
@@ -91,6 +93,11 @@ SLASH_CPL1 = "/cpl"
 SlashCmdList["CPL"] = function(msg)
     local cmd, arg = strsplit(" ", msg, 2)
     cmd = cmd or "help"
+
+    -- Allow any string starting with 'q' to trigger queue command
+    if cmd:sub(1, 1):lower() == "q" and CPL.commands.queue then
+        cmd = "queue"
+    end
 
     local command = CPL.commands[cmd]
     if command then
@@ -310,7 +317,14 @@ function CPL:updateGuild()
     -- Throttle guild roster scans
     local now = time()
     if (now - self.lastGuildScan) < GUILD_SCAN_COOLDOWN then
-        self:debug("GUILD", "- Requesting roster update - Throttled")
+        -- Only show throttle message once per minute to prevent spam
+        if (now - self.lastGuildThrottleMsg) >= 60 then
+            local timeRemaining = GUILD_SCAN_COOLDOWN - (now - self.lastGuildScan)
+            local minutes = math.floor(timeRemaining / 60)
+            local seconds = timeRemaining % 60
+            self:debug("GUILD", string.format("- Scan throttled - Next in %dm %.0fs", minutes, seconds))
+            self.lastGuildThrottleMsg = now
+        end
         return
     end
 
@@ -382,8 +396,9 @@ local function OnChannelChat(self, event, msg, author, language, channelString, 
     -- Cache stale (older than expiry)? Re-queue for update
     local age = time() - data[2]
     if age > CPL.cacheExpiry then
+        local overdue = age - CPL.cacheExpiry
         CPL:debug("CHAT", "- Channel " .. channelNumber .. " (" .. (channelName or "Unknown") .. ") [" .. playerName .. "]")
-        CPL:debug("WHO", "- Added [" .. playerName .. "] to queue - Stale " .. CPL:formatAge(age))
+        CPL:debug("WHO", "- Added [" .. playerName .. "] to queue - Stale (" .. CPL:formatAge(overdue) .. " overdue)")
         table.insert(CPL.WhoQueue, {key, 0})
         return false
     end
@@ -519,7 +534,13 @@ function CPL:processQueue()
     -- Enforce 5-second cooldown between WHO queries
     local timeSinceLastWho = time() - self.lastWhoTime
     if timeSinceLastWho < WHO_COOLDOWN_SECONDS then
-        self:debug("WHO", "- Throttled API call - Next in " .. string.format("%.1fs", WHO_COOLDOWN_SECONDS - timeSinceLastWho))
+        -- Suppress duplicate throttle messages from OnMouseDown + OnMouseUp firing together
+        -- Only show message if 200ms has elapsed since last message (prevents spam from normal clicks)
+        local now = GetTime() -- Use GetTime() for sub-second precision
+        if (now - self.lastWhoThrottleMsg) >= 0.2 then
+            self:debug("WHO", "- Throttled API call - Next in " .. string.format("%.1fs", WHO_COOLDOWN_SECONDS - timeSinceLastWho))
+            self.lastWhoThrottleMsg = now
+        end
         return
     end
 
