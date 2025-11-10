@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.3] - 2025-11-10
+
+### Added
+
+- **Database Schema Migration:** Extended player cache to support future features
+  - New format stores: `level`, `class`, `source`, `trigger`, `firstSeen`, `lastSeen`, `meshShared`
+  - Old format: `{level, timestamp}` → New format: `{level=X, class=Y, ...}`
+  - Lazy migration: Old entries converted on-the-fly when updated
+  - Backward compatible: `getLevel()` handles both formats transparently
+  - Enables future class colorization and mesh protocol features
+
+- **Debug Tools:** Added `/cpl dbcheck` command (Debug.lua only)
+  - Usage: `/cpl dbcheck old [name]` or `/cpl dbcheck new [name]`
+  - Displays comma-delimited dump of database entries
+  - Shows summary stats: total count, first/last collection timestamps
+  - Useful for verifying migration and inspecting data quality
+
+- **Status Command:** Added `/cpl status` with contextual display modes
+  - Summary mode: Player count, WHO queue depth
+  - `-what` flag: Stats only (count, avg level, first/last collection timestamps)
+  - `-who` flag: People-focused (last 3 learned, class breakdown with counts)
+  - `-how` flag: Method-focused (collection source breakdown, mesh count, WHO queue status)
+  - Name filter: `/cpl status <name>` shows substring matches with aligned level/class display
+  - Replaces `/cpl cache` with more intuitive UX-driven flag semantics
+
+### Changed
+
+- **Unknown Level Display:** Removed `[??]` placeholder for uncached players
+  - Players with unknown levels now display with no level prefix
+  - Levels appear only when known: `[15] PlayerName`
+  - Collection logic unchanged - still queues WHO lookups for unknown players
+  - Positive UX: Focus on what CPL has learned, not what it doesn't know yet
+
+- **Professional Init Banner:** Compact single-line format on addon load
+  - Format: `Chat Player Level v1.0.3 by msromike. Type /cpl for options.`
+  - Version programmatically retrieved via `GetAddOnMetadata()` (single source of truth)
+
+- **Collection Methods:** All 6 collection points now capture class data
+  - Target, mouseover, party, raid: Use `UnitClass()`
+  - Guild: Extracts class from `GetGuildRosterInfo()`
+  - WHO: Uses `info.classStr` from WHO results
+  - Class data stored in new database format for future features
+
 ## [1.0.2] - 2025-11-09
 
 ### Fixed

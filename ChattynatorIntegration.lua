@@ -90,7 +90,7 @@ local function AddLevelsToChat(data)
 
         -- Look up level from CPL cache
         local level = CPL:getLevel(nameOnly)
-        local levelPrefix = level and string.format("[%02d] ", level) or "[??] "
+        local levelPrefix = level and string.format("[%02d] ", level) or ""
 
         -- Rebuild: |Hplayer:...|h|cffCOLOR[Level] Name|r|h
         return header .. colorCode .. levelPrefix .. displayName .. "|r" .. closer

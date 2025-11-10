@@ -133,6 +133,89 @@ function CPL:debugChannels()
     end
 end
 
+-- Database format checker - shows old vs new format entries
+-- Usage: /cpl dbcheck old [name] or /cpl dbcheck new [name]
+-- Displays comma-delimited dump with summary stats
+function CPL:debugDBCheck(args)
+    -- Parse arguments: format and optional nameFilter
+    local format, nameFilter
+    if args then
+        format, nameFilter = strsplit(" ", args, 2)
+    end
+
+    if not format or (format ~= "old" and format ~= "new") then
+        self:print("Usage: /cpl dbcheck <old or new> [name]")
+        self:print("  old - Show entries in old array format")
+        self:print("  new - Show entries in new table format")
+        self:print("  [name] - Optional: filter by name substring")
+        return
+    end
+
+    local entries = {}
+    local firstEpoch, lastEpoch
+    local filter = nameFilter and nameFilter:lower()
+
+    -- Collect matching entries
+    for name, data in pairs(CPLDB.players) do
+        local matchesFilter = not filter or name:find(filter, 1, true)
+        local isOldFormat = type(data[1]) == "number"
+
+        if matchesFilter and ((format == "old" and isOldFormat) or (format == "new" and not isOldFormat)) then
+            table.insert(entries, {name = name, data = data})
+
+            -- Track first/last timestamps
+            local timestamp = isOldFormat and data[2] or data.lastSeen
+            if timestamp then
+                firstEpoch = (not firstEpoch or timestamp < firstEpoch) and timestamp or firstEpoch
+                lastEpoch = (not lastEpoch or timestamp > lastEpoch) and timestamp or lastEpoch
+            end
+        end
+    end
+
+    -- Sort by name
+    table.sort(entries, function(a, b) return a.name < b.name end)
+
+    -- Display header
+    self:print("=== DB CHECK: " .. format:upper() .. " FORMAT ===")
+
+    if format == "old" then
+        self:print("name, level, timestamp")
+        for _, entry in ipairs(entries) do
+            local data = entry.data
+            self:print(string.format("%s, %d, %s",
+                entry.name,
+                data[1],
+                date("%Y-%m-%d %H:%M:%S", data[2])
+            ))
+        end
+    else
+        self:print("name, level, class, source, trigger, firstSeen, lastSeen, meshShared")
+        for _, entry in ipairs(entries) do
+            local data = entry.data
+            self:print(string.format("%s, %d, %s, %s, %s, %s, %s, %s",
+                entry.name,
+                data.level or "nil",
+                data.class or "nil",
+                data.source or "nil",
+                data.trigger or "nil",
+                data.firstSeen and date("%Y-%m-%d %H:%M:%S", data.firstSeen) or "nil",
+                data.lastSeen and date("%Y-%m-%d %H:%M:%S", data.lastSeen) or "nil",
+                tostring(data.meshShared)
+            ))
+        end
+    end
+
+    -- Display footer with summary stats
+    self:print("---")
+    self:print("Total: " .. #entries)
+    if firstEpoch then
+        self:print("First: " .. date("%Y-%m-%d %H:%M:%S", firstEpoch))
+    end
+    if lastEpoch then
+        self:print("Last: " .. date("%Y-%m-%d %H:%M:%S", lastEpoch))
+    end
+end
+
 --------------------------------------------------
 -- Command Registration
 --------------------------------------------------
@@ -142,6 +225,7 @@ end
 CPL.commands.debug = {func = "toggleDebug", desc = "Toggle debug mode on/off"}
 CPL.commands.queue = {func = "debugQueue", desc = "Show WHO queue contents"}
 CPL.commands.debugframe = {func = "toggleDebugFrame", desc = "Toggle debug frame visibility"}
+CPL.commands.dbcheck = {func = "debugDBCheck", desc = "Check DB format: old or new [name]"}
 
 --------------------------------------------------
 -- Helper Functions

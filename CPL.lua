@@ -83,7 +83,7 @@ end
 -- Command table for easy extension (one line to add new commands)
 -- Core commands only - Debug.lua adds its own commands when loaded
 CPL.commands = {
-    cache = {func = "debugCache", desc = "Show cache contents", args = "[name]", optional = true},
+    status = {func = "showStatus", desc = "Show addon status", args = "[-what / -who / -how / name]", optional = true},
     channels = {func = "showChannels", desc = "Show monitored channels"},
     help = {func = "showHelp", desc = "Show this help"}
 }
@@ -140,8 +140,11 @@ frame:SetScript("OnEvent", function(self, event, ...)
         if addonName == "CPL" then
             InitDB()
 
+            -- Get version from .toc file
+            local version = GetAddOnMetadata("CPL", "Version") or "Unknown"
+
             CPL:debug("SYSTEM", "- Initializing")
-            CPL:print("CPL: Loaded - Chat player level caching active")
+            CPL:print("Chat Player Level v" .. version .. " by msromike. Type /cpl for options.")
 
             -- Display monitored channels on startup (Debug.lua provides the implementation)
             CPL:debugChannels()
@@ -182,7 +185,7 @@ end
 --------------------------------------------------
 
 -- Core function to store player data
-function CPL:addName(Name, Level, Source)
+function CPL:addName(Name, Level, Class, Source)
     local key = Name and Name:lower()
     local existing = key and CPLDB.players[key]
 
@@ -191,17 +194,45 @@ function CPL:addName(Name, Level, Source)
         return
     end
 
-    -- Optimization: Skip if level unchanged and cache still fresh
     local now = time()
-    if existing then
-        local cachedLevel, cachedTime = existing[1], existing[2]
-        if cachedLevel == Level and (now - cachedTime) < CPL.cacheExpiry then
-            return  -- Level unchanged and cache fresh, skip update
-        end
+    local trigger, firstSeen, cachedLevel, cachedTime
+
+    -- Handle old format migration: {level, timestamp}
+    if existing and type(existing[1]) == "number" then
+        cachedLevel = existing[1]
+        cachedTime = existing[2]
+        firstSeen = cachedTime  -- Preserve original timestamp
+    elseif existing then
+        cachedLevel = existing.level
+        cachedTime = existing.lastSeen
+        firstSeen = existing.firstSeen
     end
 
-    -- Store level with timestamp: {level, timestamp}
-    CPLDB.players[key] = {Level, now}
+    -- Determine trigger
+    if not existing then
+        trigger = "new"
+        firstSeen = now
+    elseif cachedLevel and cachedLevel ~= Level then
+        trigger = "levelup"
+    else
+        trigger = "stale"
+    end
+
+    -- Optimization: Skip if level unchanged and cache still fresh
+    if existing and cachedLevel == Level and (now - cachedTime) < CPL.cacheExpiry then
+        return  -- Level unchanged and cache fresh, skip update
+    end
+
+    -- Store new table format
+    CPLDB.players[key] = {
+        level = Level,
+        class = Class,
+        source = Source and Source:lower() or "unknown",
+        trigger = trigger,
+        firstSeen = firstSeen,
+        lastSeen = now,
+        meshShared = false  -- Local collection (mesh protocol sets true)
+    }
 
     -- Skip debug output for guild scans (too verbose)
     if Source == "GUILD" then
@@ -224,7 +255,17 @@ end
 function CPL:getLevel(player)
     local key = player:lower()
     local data = CPLDB.players[key]
-    return data and data[1]
+
+    if not data then
+        return nil
+    end
+
+    -- Handle both old array format and new table format
+    if type(data[1]) == "number" then
+        return data[1]  -- Old format: {level, timestamp}
+    else
+        return data.level  -- New format: {level=X, class=Y, ...}
+    end
 end
 
 --------------------------------------------------
@@ -267,7 +308,7 @@ function CPL:updateTarget()
     -- New player detected, update state and continue
     lastTargetPlayer = key
 
-    self:addName(Name, UnitLevel("target"), "TARGET")
+    self:addName(Name, UnitLevel("target"), UnitClass("target"), "TARGET")
 end
 
 -- Mouseover detection function
@@ -287,7 +328,7 @@ function CPL:updateMouseOver()
     -- New player detected, update state and continue
     lastMouseoverPlayer = key
 
-    self:addName(Name, UnitLevel("mouseover"), "MOUSE")
+    self:addName(Name, UnitLevel("mouseover"), UnitClass("mouseover"), "MOUSE")
 end
 
 -- Party detection function
@@ -295,16 +336,16 @@ function CPL:updateParty()
     for i = 1, GetNumSubgroupMembers() do
         local Unit = "party" .. i
         local Name = UnitName(Unit)
-        self:addName(Name, UnitLevel(Unit), "PARTY")
+        self:addName(Name, UnitLevel(Unit), UnitClass(Unit), "PARTY")
     end
 end
 
 -- Raid detection function
 function CPL:updateRaid()
     for i = 1, GetNumGroupMembers() do
-        local _, _, _, Level = GetRaidRosterInfo(i)
-        local Name = UnitName("raid" .. i)
-        self:addName(Name, Level, "RAID")
+        local Unit = "raid" .. i
+        local Name = UnitName(Unit)
+        self:addName(Name, UnitLevel(Unit), UnitClass(Unit), "RAID")
     end
 end
 
@@ -332,12 +373,12 @@ function CPL:updateGuild()
     local count = 0
 
     for i = 1, GetNumGuildMembers() do
-        local name, _, _, level = GetGuildRosterInfo(i)
+        local name, _, _, level, _, _, _, _, _, _, class = GetGuildRosterInfo(i)
 
         if name and level and level > 0 then
             -- Remove server suffix if present (cross-realm)
             local cleanName = name:match("([^%-]+)")
-            self:addName(cleanName, level, "GUILD")
+            self:addName(cleanName, level, class, "GUILD")
             count = count + 1
         end
     end
@@ -394,7 +435,8 @@ local function OnChannelChat(self, event, msg, author, language, channelString, 
     end
 
     -- Cache stale (older than expiry)? Re-queue for update
-    local age = time() - data[2]
+    local timestamp = type(data[1]) == "number" and data[2] or data.lastSeen
+    local age = time() - timestamp
     if age > CPL.cacheExpiry then
         local overdue = age - CPL.cacheExpiry
         CPL:debug("CHAT", "- Channel " .. channelNumber .. " (" .. (channelName or "Unknown") .. ") [" .. playerName .. "]")
@@ -421,16 +463,14 @@ local function PrependLevel(self, event, msg, author, ...)
     local playerName = strsplit("-", author, 2)
     local level = CPL:getLevel(playerName)
 
-    -- Prepend level if known (pad single digits), otherwise show [??]
-    local prefix
+    -- Only prepend level if known (don't show [??] for unknown)
     if level then
-        prefix = string.format("[%02d] ", level)
-    else
-        prefix = "[??] "
+        local prefix = string.format("[%02d] ", level)
+        return false, prefix .. msg, author, ...
     end
 
-    -- Return modified message with all original params
-    return false, prefix .. msg, author, ...
+    -- No level known - return message unchanged
+    return false, msg, author, ...
 end
 
 -- Register display filters for configured chat events
@@ -478,8 +518,8 @@ function CPL:processWhoResults()
 
         -- Process valid entries that match our target
         if info and info.fullName and info.level and info.fullName:lower() == targetName:lower() then
-            -- Cache the result
-            self:addName(info.fullName, info.level, "WHO")
+            -- Cache the result (WHO provides class via info.classStr)
+            self:addName(info.fullName, info.level, info.classStr, "WHO")
 
             -- Remove from queue on successful match (always index 1 - we only query the first entry)
             table.remove(self.WhoQueue, 1)
@@ -566,7 +606,8 @@ function CPL:processQueue()
     end
 
     -- Check cache age
-    local age = time() - data[2]
+    local timestamp = type(data[1]) == "number" and data[2] or data.lastSeen
+    local age = time() - timestamp
 
     -- Cache fresh? Remove from queue
     if age <= CPL.cacheExpiry then
@@ -598,6 +639,274 @@ end)
 -- Command & Cache Display Functions
 --------------------------------------------------
 
+-- Status command - unified info display with multiple modes
+-- Usage: /cpl status [flags|name]
+-- Modes: summary (default), -what, -who, -how, or name filter
+function CPL:showStatus(args)
+    -- Parse arguments to determine mode
+    local mode = "summary"  -- Default mode
+    local nameFilter = nil
+
+    if args then
+        args = args:lower()
+
+        -- Check for flag modes (exact matches only)
+        if args == "-what" then
+            mode = "what"
+        elseif args == "-who" then
+            mode = "who"
+        elseif args == "-how" then
+            mode = "how"
+        else
+            -- Not a flag, treat as name filter
+            mode = "name"
+            nameFilter = args
+        end
+    end
+
+    -- Route to appropriate display function
+    if mode == "summary" then
+        self:showStatusSummary()
+    elseif mode == "what" then
+        self:showStatusWhat()
+    elseif mode == "who" then
+        self:showStatusWho()
+    elseif mode == "how" then
+        self:showStatusHow()
+    elseif mode == "name" then
+        self:showStatusName(nameFilter)
+    end
+end
+
+-- Summary mode - basic stats
+function CPL:showStatusSummary()
+    self:print("=== CPL STATUS ===")
+
+    -- Count players
+    local count = 0
+    for _ in pairs(CPLDB.players) do
+        count = count + 1
+    end
+
+    self:print("Cached Players: " .. count)
+    self:print("WHO Queue: " .. #self.WhoQueue)
+    self:print("Mesh Status: Local only (v2.0)")
+    self:print("==================")
+end
+
+-- Stub functions for other modes (to be implemented)
+function CPL:showStatusWhat()
+    self:print("=== WHAT DATA DO WE HAVE? ===")
+
+
+    local totalLevel = 0
+    local count = 0
+    local firstEpoch, lastEpoch
+
+    -- Collect data
+    for name, data in pairs(CPLDB.players) do
+        local level, timestamp
+
+        -- Handle both old and new formats
+        if type(data[1]) == "number" then
+            level = data[1]
+            timestamp = data[2]
+        else
+            level = data.level
+            timestamp = data.lastSeen
+        end
+
+        totalLevel = totalLevel + level
+        count = count + 1
+
+        -- Track first/last timestamps
+        if timestamp then
+            firstEpoch = (not firstEpoch or timestamp < firstEpoch) and timestamp or firstEpoch
+            lastEpoch = (not lastEpoch or timestamp > lastEpoch) and timestamp or lastEpoch
+        end
+    end
+
+    -- Calculate average level
+    local avgLevel = count > 0 and (totalLevel / count) or 0
+
+    self:print(string.format("Total Players: %d", count))
+    self:print(string.format("Average Level: %.1f", avgLevel))
+    self:print("")
+
+    if firstEpoch then
+        self:print("First Saved: " .. date("%Y/%m/%d %H:%M", firstEpoch))
+    end
+    if lastEpoch then
+        self:print("Last Saved: " .. date("%Y/%m/%d %H:%M", lastEpoch))
+    end
+
+    self:print("======================")
+end
+
+function CPL:showStatusWho()
+    self:print("=== WHO HAVE WE SEEN? ===")
+
+
+    local classes = {}
+    local entries = {}
+
+    -- Collect class data and entries
+    for name, data in pairs(CPLDB.players) do
+        local class, level, lastSeen
+
+        -- Only new format has class data
+        if type(data[1]) ~= "number" then
+            class = data.class or "Unknown"
+            level = data.level
+            lastSeen = data.lastSeen
+            classes[class] = (classes[class] or 0) + 1
+
+            table.insert(entries, {name = name, level = level, lastSeen = lastSeen})
+        end
+    end
+
+    -- Sort by lastSeen (newest first) for "Last 3 learned"
+    table.sort(entries, function(a, b) return a.lastSeen > b.lastSeen end)
+
+    -- Show last 3 learned
+    if #entries > 0 then
+        self:print("Last 3 Learned:")
+        for i = 1, math.min(3, #entries) do
+            local e = entries[i]
+            self:print(string.format("  [%d] %s", e.level, e.name))
+        end
+        self:print("")
+    end
+
+    -- Sort by count (descending)
+    local sorted = {}
+    for class, count in pairs(classes) do
+        table.insert(sorted, {class = class, count = count})
+    end
+    table.sort(sorted, function(a, b) return a.count > b.count end)
+
+    -- Display class breakdown
+    if #sorted == 0 then
+        self:print("No class data available (old format entries only)")
+    else
+        self:print("Class Breakdown:")
+        for _, entry in ipairs(sorted) do
+            self:print(string.format("  %s: %d", entry.class, entry.count))
+        end
+    end
+
+    self:print("======================")
+end
+
+function CPL:showStatusHow()
+    self:print("=== HOW DID WE LEARN? ===")
+
+    local sources = {}
+    local meshCount = 0
+    local localCount = 0
+
+    -- Collect source data
+    for name, data in pairs(CPLDB.players) do
+        -- Handle both formats
+        if type(data[1]) == "number" then
+            -- Old format - always local, unknown source
+            sources["unknown"] = (sources["unknown"] or 0) + 1
+            localCount = localCount + 1
+        else
+            -- New format - check if mesh or local
+            if data.meshShared then
+                meshCount = meshCount + 1
+            else
+                local source = data.source or "unknown"
+                sources[source] = (sources[source] or 0) + 1
+                localCount = localCount + 1
+            end
+        end
+    end
+
+    -- Sort by count (descending)
+    local sorted = {}
+    for source, count in pairs(sources) do
+        table.insert(sorted, {source = source, count = count})
+    end
+    table.sort(sorted, function(a, b) return a.count > b.count end)
+
+    -- Display local collection methods
+    self:print("Collection Methods:")
+    for _, entry in ipairs(sorted) do
+        self:print(string.format("  %s: %d", entry.source, entry.count))
+    end
+
+    -- Show mesh data if any
+    if meshCount > 0 then
+        self:print(string.format("  mesh: %d", meshCount))
+    end
+
+    self:print("")
+
+    -- Show next 3 to learn (WHO queue)
+    if #self.WhoQueue > 0 then
+        self:print("Next 3 to Learn:")
+        for i = 1, math.min(3, #self.WhoQueue) do
+            self:print(string.format("  %s", self.WhoQueue[i][1]))
+        end
+    else
+        self:print("WHO Queue: Empty")
+    end
+
+    self:print("======================")
+end
+
+function CPL:showStatusName(filter)
+    if not filter then
+        self:print("Usage: /cpl status <name>")
+        return
+    end
+
+    local matches = {}
+
+    -- Collect matching entries
+    for name, data in pairs(CPLDB.players) do
+        if name:find(filter, 1, true) then
+            local level, class, source
+
+            -- Handle both formats
+            if type(data[1]) == "number" then
+                level = data[1]
+                class = nil
+                source = "unknown"
+            else
+                level = data.level
+                class = data.class
+                source = data.source or "unknown"
+            end
+
+            table.insert(matches, {
+                name = name,
+                level = level,
+                class = class or "?",
+                source = source
+            })
+        end
+    end
+
+    -- Sort by name
+    table.sort(matches, function(a, b) return a.name < b.name end)
+
+    -- Display results
+    if #matches == 0 then
+        self:print("No players found matching: " .. filter)
+        return
+    end
+
+    self:print(string.format("=== MATCHES: %d ===", #matches))
+    for _, entry in ipairs(matches) do
+        self:print(string.format("%-15s | Lvl %2d | %s | %s",
+            entry.name, entry.level, entry.class, entry.source))
+    end
+    self:print("==================")
+end
+
 -- Show cache contents (core command - always available)
 function CPL:debugCache(filterName)
     self:print("=== CPL CACHE ===")
@@ -609,10 +918,19 @@ function CPL:debugCache(filterName)
     -- Build cache table
     for name, data in pairs(CPLDB.players) do
         if not filter or name:find(filter, 1, true) then
-            local epoch = data[2]
+            -- Handle both old and new formats
+            local level, epoch
+            if type(data[1]) == "number" then
+                level = data[1]
+                epoch = data[2]
+            else
+                level = data.level
+                epoch = data.lastSeen
+            end
+
             table.insert(cache, {
                 name = name,
-                level = data[1],
+                level = level,
                 timestamp = date("%Y-%m-%d %H:%M:%S", epoch),
                 epoch = epoch
             })
@@ -669,12 +987,44 @@ end
 -- Show help text (auto-generated from commands table)
 function CPL:showHelp()
     self:print("CPL Commands:")
-    for cmd, info in pairs(CPL.commands) do
-        local usage = "/cpl " .. cmd
-        if info.args then
-            usage = usage .. " " .. info.args
-        end
-        self:print("  " .. usage .. " - " .. info.desc)
+    self:print("")
+
+    -- /cpl (bare command shows help)
+    self:print("  /cpl - Show this help")
+    self:print("")
+
+    -- /cpl channels
+    self:print("  /cpl channels - Show monitored channels")
+    self:print("")
+
+    -- /cpl status (multiline explanation)
+    self:print("  /cpl status - Show addon status")
+    self:print("    -what : Stats breakdown (avg level, sources, classes)")
+    self:print("    -who  : Class breakdown sorted by count")
+    self:print("    -how  : Source breakdown sorted by count")
+    self:print("    <name>: Filter by player name substring")
+    self:print("")
+
+    -- Check if debug commands are available
+    if CPL.commands.debug then
+        self:print("  .")
+        self:print("")
+
+        -- Debug commands
+        self:print("  /cpl debug - Toggle debug mode on/off")
+        self:print("")
+
+        self:print("  /cpl queue - Show WHO query queue")
+        self:print("")
+
+        self:print("  /cpl debugframe - Toggle debug window")
+        self:print("")
+
+        -- /cpl dbcheck (multiline explanation)
+        self:print("  /cpl dbcheck - Inspect database format")
+        self:print("    old   : Show old format entries")
+        self:print("    new   : Show new format entries")
+        self:print("    <name>: Filter by player name substring")
+        self:print("")
     end
 end
-
