@@ -119,6 +119,13 @@ end
 
 -- Persistent storage - create on init if missing
 local function InitDB()
+    -- Migration: Wipe old DB format (pre-v1.0.3 CPLDB.realm structure)
+    if CPLDB and CPLDB.realm then
+        CPLDB = { players = {} }
+        return
+    end
+
+    -- Fresh install
     if not CPLDB then
         CPLDB = {
             players = {}  -- [playername:lower()] = {level, timestamp}

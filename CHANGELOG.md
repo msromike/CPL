@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.4] - 2025-11-11
+
+### Fixed
+
+- **Database Migration:** Auto-detect and migrate pre-v1.0.3 database format
+  - Old format (`CPLDB.realm` structure) is automatically wiped and replaced with new format (`CPLDB.players`)
+  - Fixes compatibility issues for users who installed before v1.0.3
+  - Migration happens silently on first login after update
+  - Establishes pattern for handling future database schema changes
+
 ## [1.0.3] - 2025-11-10
 
 ### Added
