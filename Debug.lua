@@ -134,30 +134,102 @@ function CPL:debugChannels()
 end
 
 -- Database format checker - shows old vs new format entries
--- Usage: /cpl dbcheck old [name] or /cpl dbcheck new [name]
--- Displays comma-delimited dump with summary stats
+-- Usage: /cpl dbcheck old [name1 name2 ...] or /cpl dbcheck new [name1 name2 ...] or /cpl dbcheck del <name1 name2 ...>
+-- Displays comma-delimited dump with summary stats or deletes matching entries
 function CPL:debugDBCheck(args)
-    -- Parse arguments: format and optional nameFilter
-    local format, nameFilter
+    -- Parse arguments: format and optional name filters (space-separated)
+    local format, nameFilters
     if args then
-        format, nameFilter = strsplit(" ", args, 2)
+        format, nameFilters = strsplit(" ", args, 2)
+    end
+
+    -- Handle delete command
+    if format == "del" then
+        if not nameFilters or #nameFilters < 3 then
+            self:print("Usage: /cpl dbcheck del <name1> [name2] [name3] ...")
+            self:print("  Each name must be at least 3 characters")
+            self:print("  Deletes all players matching any substring")
+            return
+        end
+
+        -- Split into individual filters
+        local filters = {}
+        for filter in nameFilters:gmatch("%S+") do
+            if #filter >= 3 then
+                table.insert(filters, filter:lower())
+            else
+                self:print("Skipping '" .. filter .. "' (too short, need 3+ chars)")
+            end
+        end
+
+        if #filters == 0 then
+            self:print("No valid filters (all too short)")
+            return
+        end
+
+        local deleted = {}
+
+        -- Find and delete matching entries
+        for name in pairs(CPLDB.players) do
+            for _, filter in ipairs(filters) do
+                if name:find(filter, 1, true) then
+                    table.insert(deleted, name)
+                    CPLDB.players[name] = nil
+                    break  -- Don't check other filters once matched
+                end
+            end
+        end
+
+        -- Report results
+        table.sort(deleted)
+        if #deleted == 0 then
+            self:print("No players found matching: " .. nameFilters)
+        else
+            self:print("Deleted " .. #deleted .. " player(s):")
+            for _, name in ipairs(deleted) do
+                self:print("  " .. name)
+            end
+        end
+        return
     end
 
     if not format or (format ~= "old" and format ~= "new") then
-        self:print("Usage: /cpl dbcheck <old or new> [name]")
+        self:print("Usage: /cpl dbcheck <old or new or del> [name1 name2 ...]")
         self:print("  old - Show entries in old array format")
         self:print("  new - Show entries in new table format")
-        self:print("  [name] - Optional: filter by name substring")
+        self:print("  del - Delete entries matching names (min 3 chars each)")
+        self:print("  [name1 name2 ...] - Optional: filter by name substrings")
         return
+    end
+
+    -- Split into individual filters
+    local filters = {}
+    if nameFilters then
+        for filter in nameFilters:gmatch("%S+") do
+            if #filter >= 3 then
+                table.insert(filters, filter:lower())
+            else
+                self:print("Skipping filter '" .. filter .. "' (too short, need 3+ chars)")
+            end
+        end
     end
 
     local entries = {}
     local firstEpoch, lastEpoch
-    local filter = nameFilter and nameFilter:lower()
 
     -- Collect matching entries
     for name, data in pairs(CPLDB.players) do
-        local matchesFilter = not filter or name:find(filter, 1, true)
+        -- Match if no filters OR name matches any filter
+        local matchesFilter = #filters == 0
+        if not matchesFilter then
+            for _, filter in ipairs(filters) do
+                if name:find(filter, 1, true) then
+                    matchesFilter = true
+                    break
+                end
+            end
+        end
+
         local isOldFormat = type(data[1]) == "number"
 
         if matchesFilter and ((format == "old" and isOldFormat) or (format == "new" and not isOldFormat)) then
@@ -225,7 +297,7 @@ end
 CPL.commands.debug = {func = "toggleDebug", desc = "Toggle debug mode on/off"}
 CPL.commands.queue = {func = "debugQueue", desc = "Show WHO queue contents"}
 CPL.commands.debugframe = {func = "toggleDebugFrame", desc = "Toggle debug frame visibility"}
-CPL.commands.dbcheck = {func = "debugDBCheck", desc = "Check DB format: old or new [name]"}
+CPL.commands.dbcheck = {func = "debugDBCheck", desc = "Check DB format or delete: old/new/del [name]"}
 
 --------------------------------------------------
 -- Helper Functions

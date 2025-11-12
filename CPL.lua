@@ -140,6 +140,7 @@ frame:RegisterEvent("PLAYER_TARGET_CHANGED")
 frame:RegisterEvent("UPDATE_MOUSEOVER_UNIT")
 frame:RegisterEvent("GUILD_ROSTER_UPDATE")
 frame:RegisterEvent("GROUP_ROSTER_UPDATE")
+frame:RegisterEvent("RAID_ROSTER_UPDATE")
 frame:RegisterEvent("CHAT_MSG_SYSTEM")
 frame:SetScript("OnEvent", function(self, event, ...)
     if event == "ADDON_LOADED" then
@@ -173,6 +174,8 @@ frame:SetScript("OnEvent", function(self, event, ...)
         else
             CPL:updateParty()
         end
+    elseif event == "RAID_ROSTER_UPDATE" then
+        CPL:updateRaid()
     elseif event == "CHAT_MSG_SYSTEM" then
         CPL:processWhoResults()
     end
@@ -338,7 +341,9 @@ end
 
 -- Party detection function
 function CPL:updateParty()
-    for i = 1, GetNumSubgroupMembers() do
+    local count = GetNumSubgroupMembers()
+    self:debug("PARTY", "- Scanning", count, "members")
+    for i = 1, count do
         local Unit = "party" .. i
         local Name = UnitName(Unit)
         self:addName(Name, UnitLevel(Unit), UnitClass(Unit), "PARTY")
@@ -347,7 +352,9 @@ end
 
 -- Raid detection function
 function CPL:updateRaid()
-    for i = 1, GetNumGroupMembers() do
+    local count = GetNumGroupMembers()
+    self:debug("RAID", "- Scanning", count, "members")
+    for i = 1, count do
         local Unit = "raid" .. i
         local Name = UnitName(Unit)
         self:addName(Name, UnitLevel(Unit), UnitClass(Unit), "RAID")
@@ -1026,10 +1033,11 @@ function CPL:showHelp()
         self:print("")
 
         -- /cpl dbcheck (multiline explanation)
-        self:print("  /cpl dbcheck - Inspect database format")
-        self:print("    old   : Show old format entries")
-        self:print("    new   : Show new format entries")
-        self:print("    <name>: Filter by player name substring")
+        self:print("  /cpl dbcheck - Inspect or modify database")
+        self:print("    old     : Show old format entries")
+        self:print("    new     : Show new format entries")
+        self:print("    del <name>: Delete matching entries (min 3 chars)")
+        self:print("    <name>  : Filter by player name substring")
         self:print("")
     end
 end

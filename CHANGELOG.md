@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.5] - 2025-11-12
+
+### Added
+
+- **Debug Command Enhancement:** `/cpl dbcheck` now supports multiple filter terms
+  - Usage: `/cpl dbcheck del <name1> [name2] [name3] ...`
+  - Usage: `/cpl dbcheck new <name1> [name2] [name3] ...`
+  - Usage: `/cpl dbcheck old <name1> [name2] [name3] ...`
+  - Each filter must be at least 3 characters
+  - Matches any player name containing any of the filter substrings
+
+### Fixed
+
+- **Debug Mode:** Debug.lua disabled by default in production (reduces clutter for users)
+  - Previous release (v1.0.4) accidentally shipped with debug enabled
+  - Debug commands no longer available to end users (without them editing TOC)
+  - Cleaner chat experience for typical usage
+- **Raid Collection:** Added `RAID_ROSTER_UPDATE` event to improve raid member detection
+  - Raid leaves now properly trigger collection
+  - Debug output added to party/raid collection functions
+
+### Known Issues
+
+- **Raid Join Collection:** Raid members joining may not be auto-detected in all cases
+  - Workaround: Target or mouseover raid members to cache their levels manually
+  - Investigation ongoing for future fix
+
 ## [1.0.4] - 2025-11-11
 
 ### Fixed
