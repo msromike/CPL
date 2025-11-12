@@ -67,5 +67,15 @@
     "Lua.workspace.ignoreDir": [
         "archive/"
     ],
-    "search.useIgnoreFiles": false
+    "search.useIgnoreFiles": false,
+    "github.copilot.chat.codeGeneration.useInstructionFiles": true,
+    "github.copilot.enable": {
+        "*": true,
+        "plaintext": false,
+        "markdown": true,
+        "lua": true
+    },
+    "chat.instructionsFilesLocations": [
+        ".github/instructions"
+    ]
 }
