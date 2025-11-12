@@ -241,12 +241,10 @@ function CPL:addName(Name, Level, Class, Source)
         meshShared = false  -- Local collection (mesh protocol sets true)
     }
 
-    -- Skip debug output for guild scans (too verbose)
+    -- Debug output for detection sources (skip guild scans - too verbose)
     if Source == "GUILD" then
-        return
+        return  -- Data saved, skip debug output
     end
-
-    -- Debug output for other detection sources
     if Source == "WHO" then
         self:debug("WHO", "- Received [" .. Name .. "] - Lvl " .. Level)
     elseif Source == "TARGET" and existing then
