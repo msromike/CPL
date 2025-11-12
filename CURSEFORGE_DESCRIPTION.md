@@ -1,39 +1,41 @@
 # CPL - Chat Player Levels
 
-See player levels in chat - no more guessing who can help with that dungeon run or which lowbie needs assistance.
+See player levels in chat - no more guessing who can help with that dungeon run or which lowbie needs assistance. Learns as it goes, the longer you use it the better it gets at displaying player levels.
 
 ## What It Does
 
-Automatically displays player levels before their name in all major chat channels. Simple, lightweight, and just works.
+Automatically displays player levels before their name (Chattynator) or after their name (Blizz UI) in chat output. Simple, lightweight, and just works.
 
 - Guild, officer, party, raid, whispers, say, yell - all covered
-- Smart caching remembers levels (no spam queries)
-- Works with target/mouseover detection
+- Smart caching remembers levels and detects level-ups and rerolls
 - Automatically integrates with Chattynator if it is installed
-- New players show `[??]` until their level is detected
+- Unknown players show no level prefix until detected
 
 ## Example
 
 ```
 [60] Ragnaros: LF2M tank and healer for Strat
-[??] Newplayer: Anyone up for SM?
+Newplayer: Anyone up for SM?
 ```
 
-Levels are detected automatically through chat activity, targeting, guild roster, and party membership. The addon remembers levels as you play - no need to look them up again.
+Levels are detected automatically through normal user in-game activity. The addon finds and remembers player levels as you play.
 
 ## Features
 
 - Zero configuration required - install and go
 - Works with Blizzard's default chat and Chattynator chat addon
-- Automatic level detection from chat, guild roster, and targeting
-- Periodically updates levels to level-ups detect and rerolls
-- Optional debug tools for troubleshooting
+- Periodically updates levels to detect level-ups and rerolls
+- Automatic level detection from chat, guild roster, targeting, and party/raid membership
 
 ## Slash Commands
 
 ```
-/cpl help - Show all commands
-/cpl cache - View cached levels
+/cpl help     - Show all commands
+/cpl status   - Show addon status with optional filters
+              -what: Stats (player count, avg level, timestamps)
+              -who:  Class breakdown
+              -how:  Collection method breakdown
+              <name>: Filter by player name
 /cpl channels - Show monitored channels
 ```
 
