@@ -5,10 +5,13 @@ A lightweight World of Warcraft Classic addon that displays player levels next t
 ## Features
 
 - **Automatic Level Detection** - Shows player levels in chat messages across all major channels
-- **Intelligent Caching** - Remembers player levels (8-hour expiry) to minimize API calls
-- **Smart WHO Queries** - Automatically looks up unknown players with intelligent throttling
-- **Guild Integration** - Instantly detects guild member levels from roster
-- **Target/Mouseover Detection** - Captures levels when you target or mouseover players
+- **Intelligent Caching** - Remembers player levels (with expiry) to minimize API calls
+- **Multiple Collection Methods:**
+  - **Guild Roster** - Instantly detects all guild member levels (including offline)
+  - **Party Detection** - Automatically captures party member levels
+  - **Raid Detection** - Automatically captures raid member levels (including offline)
+  - **Target/Mouseover** - Captures levels when you target or mouseover players
+  - **Smart WHO Queries** - Automatically looks up unknown players with intelligent throttling
 - **Chattynator Integration** - Optional enhanced integration with Chattynator chat addon
 - **Debug Module** - Optional debug tools for developers (comment out Debug.lua in .toc to disable)
 
@@ -51,13 +54,11 @@ CPL works automatically once installed. Player levels appear in brackets next to
 
 ## Chattynator Integration
 
-CPL includes optional integration with [Chattynator](https://www.curseforge.com/wow/addons/chattynator) for enhanced chat experience:
+CPL works with both the default Blizzard chat UI and:
+    [Chattynator](https://www.curseforge.com/wow/addons/chattynator):
 
-1. Install both CPL and Chattynator
-2. CPL automatically detects Chattynator and enables integration
-3. Player levels appear in Chattynator's custom chat windows
-
-**Note:** Chattynator is completely optional - CPL works standalone!
+- **Blizzard UI:** CPL works out-of-the-box with the default WoW chat interface
+- **Chattynator:** Automatic integration with Chattynator
 
 ## Monitored Chat Channels
 
@@ -104,6 +105,6 @@ This project contains code derived from Prat-3.0, which is licensed under GPL v2
 
 ## Version
 
-Current version: **1.0.0**
+Current version: **1.0.5**
 
 See [CHANGELOG.md](CHANGELOG.md) for version history.

@@ -1,6 +1,0 @@
-﻿# Test in-game to see what chat manipulation IS possible in Classic Era
-/run local cf = ChatFrame1; print('Has OnEvent:', cf:GetScript('OnEvent') and 'YES' or 'NO')
-/run local cf = ChatFrame1; print('Has AddMessage:', cf.AddMessage and 'YES' or 'NO')
-/run local orig = ChatFrame1.AddMessage; ChatFrame1.AddMessage = function(self, msg, ...) print('INTERCEPT:', msg); orig(self, msg, ...) end; print('Hooked AddMessage')
-/run local function test(self, event, msg, author) return false, '[TEST] ' .. msg, author; end; ChatFrame_AddMessageEventFilter('CHAT_MSG_SAY', test); print('Filter added')
-/say Test message to see filter
